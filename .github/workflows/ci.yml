@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22', '24']
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            packages/collaboration/package-lock.json
+      - run: npm ci
+      - name: SDK types, tests and build
+        run: |
+          npm run typecheck
+          npm test
+          npm run build
+      - name: Collaboration types, tests and build
+        run: |
+          npm --prefix packages/collaboration ci
+          npm --prefix packages/collaboration run typecheck
+          npm --prefix packages/collaboration test
+          npm --prefix packages/collaboration run build
+      - name: Installed package and framework tests
+        if: matrix.node == '22'
+        run: |
+          node --test tests/package.test.cjs
+          cd packages/collaboration
+          node --test tests/package.test.cjs
+          node --test tests/framework-package.test.cjs

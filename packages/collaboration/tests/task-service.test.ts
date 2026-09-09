@@ -83,7 +83,7 @@ it.each([false, true])('refreshes a rejected token once (refresher=%s) and repla
     tokenRefresher: refresh ? (_name, rejected) => { expect(rejected).toBe('old'); refreshes++; return 'new'; } : undefined });
   await client.writeSubtaskFileFromPath(snapshot(), 'sub', 'result/file.bin', source);
   expect(tokens).toEqual(['Bearer old', 'Bearer new']); expect(refreshes).toBe(refresh ? 1 : 0); expect(seen).toHaveLength(2);
-  for (const data of seen) expect(Buffer.from(data)).toEqual(content);
+  for (const data of seen) expect(Buffer.from(data).equals(content)).toBe(true);
 });
 
 it.each([[400, 'COLLABORATION_TASK_INVALID'], [401, 'COLLABORATION_TASK_UNAUTHORIZED'], [403, 'COLLABORATION_TASK_UNAUTHORIZED'], [404, 'COLLABORATION_TASK_NOT_FOUND'], [409, 'COLLABORATION_TASK_CONFLICT'], [413, 'COLLABORATION_FILE_TOO_LARGE'], [422, 'COLLABORATION_TASK_INVALID'], [500, 'COLLABORATION_TASK_UNAVAILABLE'], [503, 'COLLABORATION_TASK_UNAVAILABLE']])('maps HTTP %s and does not blindly retry writes', async (status, code) => {
@@ -107,7 +107,7 @@ it('streams signed file downloads without Task Service credentials across redire
     }
   }); cleanup.push(() => server.close()); const client = makeClient(server.url);
   expect(await client.downloadTaskFileToPath(snapshot(), 'task', 'ref', destination)).toBe(bytes.length);
-  expect(await readFile(destination)).toEqual(bytes); expect(downloaded).toBe(1);
+  expect((await readFile(destination)).equals(bytes)).toBe(true); expect(downloaded).toBe(1);
 });
 
 it('classifies a download disconnect as unavailable, not a local file configuration error', async () => {

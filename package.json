@@ -1,0 +1,292 @@
+{
+  "name": "@alibabacloud/agentcore-sdk",
+  "version": "0.1.0",
+  "description": "AgentCore runtime SDK for Node.js",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20.3.0"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "collaboration": ["dist/collaboration/index.d.ts"],
+      "auth": [
+        "dist/auth/index.d.ts"
+      ],
+      "controlplane": [
+        "dist/controlplane/index.d.ts"
+      ],
+      "model": [
+        "dist/model/index.d.ts"
+      ],
+      "mcp": [
+        "dist/mcp/index.d.ts"
+      ],
+      "skill": [
+        "dist/skill/index.d.ts"
+      ],
+      "memory": [
+        "dist/memory/index.d.ts"
+      ],
+      "runtime": [
+        "dist/runtime/index.d.ts"
+      ],
+      "server": [
+        "dist/server/index.d.ts"
+      ],
+      "integrations/*": [
+        "dist/integrations/*.d.ts"
+      ]
+    }
+  },
+  "exports": {
+    "./collaboration": {
+      "import": { "types": "./dist/collaboration/index.d.ts", "default": "./dist/collaboration/index.js" },
+      "require": { "types": "./dist/collaboration/index.d.cts", "default": "./dist/collaboration/index.cjs" }
+    },
+    "./integrations/mastra": {
+      "import": { "types": "./dist/integrations/mastra.d.ts", "default": "./dist/integrations/mastra.js" },
+      "require": { "types": "./dist/integrations/mastra.d.cts", "default": "./dist/integrations/mastra.cjs" }
+    },
+    "./integrations/google-adk": {
+      "import": {
+        "types": "./dist/integrations/google-adk.d.ts",
+        "default": "./dist/integrations/google-adk.js"
+      },
+      "require": {
+        "types": "./dist/integrations/google-adk.d.cts",
+        "default": "./dist/integrations/google-adk.cjs"
+      }
+    },
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./auth": {
+      "import": {
+        "types": "./dist/auth/index.d.ts",
+        "default": "./dist/auth/index.js"
+      },
+      "require": {
+        "types": "./dist/auth/index.d.cts",
+        "default": "./dist/auth/index.cjs"
+      }
+    },
+    "./controlplane": {
+      "import": {
+        "types": "./dist/controlplane/index.d.ts",
+        "default": "./dist/controlplane/index.js"
+      },
+      "require": {
+        "types": "./dist/controlplane/index.d.cts",
+        "default": "./dist/controlplane/index.cjs"
+      }
+    },
+    "./model": {
+      "import": {
+        "types": "./dist/model/index.d.ts",
+        "default": "./dist/model/index.js"
+      },
+      "require": {
+        "types": "./dist/model/index.d.cts",
+        "default": "./dist/model/index.cjs"
+      }
+    },
+    "./mcp": {
+      "import": {
+        "types": "./dist/mcp/index.d.ts",
+        "default": "./dist/mcp/index.js"
+      },
+      "require": {
+        "types": "./dist/mcp/index.d.cts",
+        "default": "./dist/mcp/index.cjs"
+      }
+    },
+    "./skill": {
+      "import": {
+        "types": "./dist/skill/index.d.ts",
+        "default": "./dist/skill/index.js"
+      },
+      "require": {
+        "types": "./dist/skill/index.d.cts",
+        "default": "./dist/skill/index.cjs"
+      }
+    },
+    "./memory": {
+      "import": {
+        "types": "./dist/memory/index.d.ts",
+        "default": "./dist/memory/index.js"
+      },
+      "require": {
+        "types": "./dist/memory/index.d.cts",
+        "default": "./dist/memory/index.cjs"
+      }
+    },
+    "./integrations/langgraph": {
+      "import": {
+        "types": "./dist/integrations/langgraph.d.ts",
+        "default": "./dist/integrations/langgraph.js"
+      },
+      "require": {
+        "types": "./dist/integrations/langgraph.d.cts",
+        "default": "./dist/integrations/langgraph.cjs"
+      }
+    },
+    "./integrations/langchain": {
+      "import": {
+        "types": "./dist/integrations/langchain.d.ts",
+        "default": "./dist/integrations/langchain.js"
+      },
+      "require": {
+        "types": "./dist/integrations/langchain.d.cts",
+        "default": "./dist/integrations/langchain.cjs"
+      }
+    },
+    "./integrations/ai-sdk": {
+      "import": {
+        "types": "./dist/integrations/ai-sdk.d.ts",
+        "default": "./dist/integrations/ai-sdk.js"
+      },
+      "require": {
+        "types": "./dist/integrations/ai-sdk.d.cts",
+        "default": "./dist/integrations/ai-sdk.cjs"
+      }
+    },
+    "./server": {
+      "import": {
+        "types": "./dist/server/index.d.ts",
+        "default": "./dist/server/index.js"
+      },
+      "require": {
+        "types": "./dist/server/index.d.cts",
+        "default": "./dist/server/index.cjs"
+      }
+    },
+    "./runtime": {
+      "import": {
+        "types": "./dist/runtime/index.d.ts",
+        "default": "./dist/runtime/index.js"
+      },
+      "require": {
+        "types": "./dist/runtime/index.d.cts",
+        "default": "./dist/runtime/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:package": "npm run build && node --test tests/package.test.cjs",
+    "prepack": "npm run typecheck && npm run build"
+  },
+  "dependencies": {
+    "@ag-ui/core": "^0.0.59",
+    "@alicloud/agentcore20260804": "1.2.1",
+    "@alicloud/agentidentitydata20251127": "^2.0.0",
+    "@alicloud/openapi-core": "^1.0.8",
+    "@anthropic-ai/sdk": "^0.124.0",
+    "@darabonba/typescript": "^1.0.0",
+    "@hono/node-server": "^2.1.1",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "hono": "^4.13.7",
+    "openai": "^6.15.0",
+    "yaml": "^2.8.1",
+    "yauzl": "^3.4.0"
+  },
+  "peerDependencies": {
+    "@mastra/core": "^1.64.0",
+    "@ai-sdk/anthropic": "^3.0.116",
+    "@ai-sdk/openai": "^3.0.109",
+    "@ai-sdk/openai-compatible": "^2.0.74",
+    "@ai-sdk/provider": "^3.0.15",
+    "@google/adk": "^2.0.0",
+    "@google/genai": "^2.21.0",
+    "@langchain/anthropic": "^1.5.9",
+    "@langchain/core": "^1.2.9",
+    "@langchain/langgraph": "^1.4.14",
+    "@langchain/openai": "^1.5.11",
+    "ai": "^6.0.277",
+    "langchain": "^1.5.10",
+    "zod": "^4.5.4"
+  },
+  "peerDependenciesMeta": {
+    "@mastra/core": { "optional": true },
+    "@google/genai": {
+      "optional": true
+    },
+    "@google/adk": {
+      "optional": true
+    },
+    "@langchain/openai": {
+      "optional": true
+    },
+    "@langchain/anthropic": {
+      "optional": true
+    },
+    "@ai-sdk/anthropic": {
+      "optional": true
+    },
+    "@ai-sdk/openai": {
+      "optional": true
+    },
+    "@ai-sdk/openai-compatible": {
+      "optional": true
+    },
+    "@ai-sdk/provider": {
+      "optional": true
+    },
+    "ai": {
+      "optional": true
+    },
+    "zod": {
+      "optional": true
+    },
+    "langchain": {
+      "optional": true
+    },
+    "@langchain/core": {
+      "optional": true
+    },
+    "@langchain/langgraph": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@ai-sdk/google": "^3.0.121",
+    "@ai-sdk/anthropic": "^3.0.116",
+    "@ai-sdk/openai": "^3.0.109",
+    "@ai-sdk/openai-compatible": "^2.0.74",
+    "@ai-sdk/provider": "^3.0.15",
+    "@google/adk": "^2.0.0",
+    "@google/genai": "^2.21.0",
+    "@langchain/anthropic": "^1.5.9",
+    "@langchain/core": "^1.2.9",
+    "@langchain/langgraph": "^1.4.14",
+    "@langchain/openai": "^1.5.11",
+    "@mastra/core": "^1.64.0",
+    "@types/node": "^20.19.0",
+    "@types/yauzl": "^2.10.3",
+    "@types/yazl": "^3.3.1",
+    "ai": "^6.0.277",
+    "langchain": "^1.5.10",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4",
+    "yazl": "^3.3.1",
+    "zod": "^4.5.4"
+  }
+}

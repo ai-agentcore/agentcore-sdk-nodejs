@@ -1,0 +1,13 @@
+node_modules/
+dist/
+coverage/
+*.tgz
+.env
+agent.yaml
+.agentcore/
+
+# Internal design and development records (kept locally)
+/docs/implementation-plan.md
+/docs/api-coverage.md
+/docs/memory-wire-contract.md
+/docs/node-version-matrix.md

@@ -1,4 +1,4 @@
-import { AgentCore } from '../src';
+import { AgentCore } from '@alibabacloud/agentcore-sdk';
 
 // Run in a cloud container with platform-provided configuration.
 const core = AgentCore.auto({ logger: console });

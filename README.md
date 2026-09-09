@@ -166,10 +166,14 @@ try {
 在仓库中运行 [最小服务示例](examples/server.ts)：
 
 ```bash
+npm ci
+npm run build
 npx tsx examples/server.ts
 ```
 
 示例监听 9000 端口，默认接口为 `POST /ag-ui/agent` 和 `POST /openai/v1/chat/completions`，支持流式响应。
+
+示例使用公开包名导入，在仓库中运行前需要构建本地包。完整模型、MCP、Skill 和 Memory 服务见 [LangChain 示例](examples/langchain-server.ts)，AG-UI/OpenAI 请求示例见 [调用 Agent 服务](examples/README.md#调用-agent-服务)。
 
 框架执行流应使用对应的[事件转换器](examples/execution-events.md)，不要只提取文本。AG-UI 可表达消息边界、工具调用和工具结果；OpenAI Chat Completions 按其标准表达文本和工具调用，不提供独立的工具结果流式事件。会话历史的保存与恢复仍由应用或所用框架负责。完整配置见 [Agent 服务指南](docs/server.md)。
 

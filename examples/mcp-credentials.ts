@@ -1,4 +1,4 @@
-import { AgentCore } from '../src';
+import { AgentCore } from '@alibabacloud/agentcore-sdk';
 
 // Run in AgentCore with a named MCP Header credential allowed for test-mcp.
 const core = AgentCore.auto();

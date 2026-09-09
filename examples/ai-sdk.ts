@@ -1,7 +1,7 @@
 import { generateText, stepCountIs } from 'ai';
-import { AgentCore } from '../src';
-import { languageModel, tools } from '../src/integrations/ai-sdk';
-import { skillTools } from '../src/skill';
+import { AgentCore } from '@alibabacloud/agentcore-sdk';
+import { languageModel, tools } from '@alibabacloud/agentcore-sdk/integrations/ai-sdk';
+import { skillTools } from '@alibabacloud/agentcore-sdk/skill';
 
 const core = AgentCore.auto({ logger: console });
 try {

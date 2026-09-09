@@ -29,7 +29,7 @@ npm run build
 npx tsx examples/cloud-resources.ts
 ```
 
-云端示例用于部署在 AgentCore 中的应用。为直接运行源码，示例使用 `../src` 导入；复制到自己的项目时改用 `@alibabacloud/agentcore-sdk` 及对应子路径。
+云端示例用于部署在 AgentCore 中的应用。示例使用公开包名 `@alibabacloud/agentcore-sdk` 及对应子路径，可直接复制到自己的项目。仓库内运行时通过同名包的 exports 使用本地 `dist`，因此请先执行 `npm run build`；修改 SDK 源码后也需要重新构建。
 
 | 示例 | 内容 |
 | --- | --- |
@@ -117,11 +117,37 @@ ADK 仍通过 `partitionResolver(appName, userId)` 映射到 `agentId`；`addEve
 服务示例监听 9000 端口，提供 AG-UI 和 OpenAI Chat Completions 接口。向已部署的应用发送请求：
 
 ```bash
-curl https://<agent-endpoint>/openai/v1/chat/completions \
+curl -N 'https://<agent-endpoint>/openai/v1/chat/completions' \
   -H 'Content-Type: application/json' \
   -d '{"model":"app","messages":[{"role":"user","content":"你好"}],"stream":true}'
 ```
 
 根据部署环境补充认证信息。示例固定使用代码中的模型连接；请求的 `model` 字段不会自动切换连接。AG-UI 接口为 `POST /ag-ui/agent`，健康检查为 `GET /healthz` 和 `GET /readyz`。
+
+AG-UI 请求示例（将 Endpoint 替换为实际地址）：
+
+```bash
+curl -N 'https://<agent-endpoint>/ag-ui/agent' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "threadId": "example-thread-1",
+    "runId": "example-run-1",
+    "messages": [
+      {"id": "message-1", "role": "user", "content": "加载可用 Skill，按其说明完成一个示范。"}
+    ],
+    "state": {},
+    "tools": [],
+    "context": [],
+    "forwardedProps": {}
+  }'
+```
+
+每次运行使用新的 `runId`；同一对话可复用 `threadId`，但它不会让服务自动保存历史。`tools: []` 不会禁用 Agent 代码中已经配置的 MCP/Skill 工具。
+
+运行 `examples/langchain-server.ts` 时，正常输出以 `RUN_STARTED` 开始、`RUN_FINISHED` 结束。发生工具调用时，可看到独立文本消息的 START/CONTENT/END，以及 `TOOL_CALL_START/ARGS/END`、`TOOL_CALL_RESULT`；调用和结果由相同 `toolCallId` 关联。是否调用工具取决于模型和任务，不保证每个请求都有工具事件。运行失败会输出 `RUN_ERROR`。
+
+OpenAI 流式响应输出 `choices[].delta` 并以 `[DONE]` 结束；将 `stream` 改为 `false` 可获取单个 JSON 响应。它不输出独立工具结果，也不能保留多条 assistant 消息边界。模型和工具循环由此服务执行，客户端不要把返回的工具调用轨迹再次执行。
+
+`examples/server.ts` 是无云资源的 Echo 示例，只会返回文本；要观察真实 Agent 的工具流程，请使用 LangChain 服务示例。默认不开放浏览器跨域；若浏览器与服务跨域，由应用按实际来源配置 CORS，参见 [服务指南](../docs/server.md#生命周期与扩展)。
 
 需要展示工具调用和工具结果时，使用[框架执行事件转换器](execution-events.md)接入完整执行流。AG-UI 保留消息边界和工具结果；OpenAI Chat Completions 不表达完整执行轨迹。服务不会替应用保存会话历史，需要多轮对话时由应用或框架管理。

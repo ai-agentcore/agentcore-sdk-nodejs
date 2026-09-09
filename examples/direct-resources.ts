@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
-import { AgentCore } from '../src';
-import { skillTools } from '../src/skill';
+import { AgentCore } from '@alibabacloud/agentcore-sdk';
+import { skillTools } from '@alibabacloud/agentcore-sdk/skill';
 
 // Your own service endpoints and credentials, not platform resource names.
 const core = new AgentCore({ logger: console });

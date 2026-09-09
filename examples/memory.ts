@@ -1,4 +1,4 @@
-import { AgentCore } from '../src';
+import { AgentCore } from '@alibabacloud/agentcore-sdk';
 
 const core = AgentCore.auto();
 try {

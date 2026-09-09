@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { Agent } from '@mastra/core/agent';
 import { RequestContext } from '@mastra/core/request-context';
-import { AgentCore } from '../src';
-import { model, tools, skillTools, AgentCoreMemoryProcessor } from '../src/integrations/mastra';
+import { AgentCore } from '@alibabacloud/agentcore-sdk';
+import { model, tools, skillTools, AgentCoreMemoryProcessor } from '@alibabacloud/agentcore-sdk/integrations/mastra';
 
 // Cloud example. Configure the trusted logical user/session in application code.
 const core = AgentCore.auto({ logger: console });

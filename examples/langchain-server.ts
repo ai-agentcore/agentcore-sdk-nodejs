@@ -1,9 +1,9 @@
 import { createAgent } from 'langchain';
 import { HumanMessage } from '@langchain/core/messages';
 import { z } from 'zod';
-import { AgentCore } from '../src';
-import { AgentCoreServer } from '../src/server';
-import { model, tools, skillTools, agentCoreMemoryMiddleware, AgentCoreConverter } from '../src/integrations/langchain';
+import { AgentCore } from '@alibabacloud/agentcore-sdk';
+import { AgentCoreServer } from '@alibabacloud/agentcore-sdk/server';
+import { model, tools, skillTools, agentCoreMemoryMiddleware, AgentCoreConverter } from '@alibabacloud/agentcore-sdk/integrations/langchain';
 
 // Cloud runtime example. Create these named resources in the Agent's Workspace first.
 const core = AgentCore.auto({ logger: console });

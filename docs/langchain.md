@@ -74,9 +74,9 @@ LangChain 使用 `agentCoreMemoryMiddleware()`，LangGraph 使用显式的 `Agen
 npx tsx examples/langchain-server.ts
 ```
 
-示例需 Workspace 中预先存在 `test-mc`（模型 `qwen3.8-max`）、`test-mcp`、`test-skill` 和 `test-memory`。它处理单用户文本轮次，输出模型文本事件；不把内部工具调用伪装成需要 OpenAI 客户端执行的函数调用。它不实现多租户身份认证或持久化对话历史，生产应用应自行确定可信的逻辑身份/session scope。
+示例需 Workspace 中预先存在 `test-mc`（模型 `qwen3.8-max`）、`test-mcp`、`test-skill` 和 `test-memory`。它处理单用户最新一条文本，通过 SDK 的 `AgentCoreConverter` 输出文本、工具调用及结果，并保留消息边界和调用 ID。它不实现多租户身份认证或持久化对话历史，生产应用应自行确定可信的逻辑身份/session scope。
 
-框架事件到 `AgentEvent` 的映射留在应用层，Server 只负责 AG-UI / OpenAI 编码。应用可按需要额外将工具执行过程映射为 AG-UI 工具事件。
+应用将 `agent.streamEvents(..., { version: 'v2' })` 的完整事件交给每次请求新建的转换器，无需自己实现事件映射。Server 负责 AG-UI / OpenAI 编码：AG-UI 保留工具结果及消息边界，OpenAI Chat Completions 不提供独立工具结果事件。工具已经在服务端执行，客户端不要把返回的调用轨迹再执行一遍。详见 [执行事件](../examples/execution-events.md) 和 [调用 Agent 服务](../examples/README.md#调用-agent-服务)。
 
 ## 验证范围
 

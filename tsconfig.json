@@ -3,11 +3,16 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "paths": {
+      "@alibabacloud/agentcore-sdk": ["./src/index.ts"],
+      "@alibabacloud/agentcore-sdk/*": ["./src/*"]
+    },
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "noUncheckedIndexedAccess": true,
     "declaration": true,
+    "rootDir": ".",
     "outDir": "dist"
   },
   "include": ["src", "tests", "examples", "tsup.config.ts"]

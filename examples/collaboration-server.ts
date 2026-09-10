@@ -4,6 +4,7 @@ import { AgentCoreServer } from '../src/server';
 import { model, tools, AgentCoreConverter } from '../src/integrations/langchain';
 import { skillTools } from '../src/skill';
 
+// Requires AgentCore platform allowlist access to collaboration.
 // Cloud example: install the collaboration addon and mount Teams/runtime configuration.
 // The platform ingress, not an untrusted client, supplies the collaboration context header.
 const core = AgentCore.auto({ logger: console });

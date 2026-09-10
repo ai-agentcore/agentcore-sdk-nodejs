@@ -6,6 +6,9 @@ coverage/
 agent.yaml
 .agentcore/
 
+# Local cloud verification scripts
+/tests/live/
+
 # Internal design and development records (kept locally)
 /docs/implementation-plan.md
 /docs/api-coverage.md

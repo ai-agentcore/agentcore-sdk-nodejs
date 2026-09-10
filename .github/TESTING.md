@@ -9,7 +9,7 @@ It does not publish packages or require cloud credentials.
 - Node 22 additionally tests packed packages in temporary consumer projects,
   including ESM / CommonJS imports and framework integrations.
 - Tests use mocks and local HTTP/MCP services, including AG-UI / OpenAI protocol
-  output. They are not cloud end-to-end tests; `tests/live` scripts are not run.
+  output. They are not cloud end-to-end tests.
 
 To reproduce the checks:
 

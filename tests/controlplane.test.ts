@@ -55,8 +55,8 @@ describe('official AgentCore OpenAPI client', () => {
     vi.spyOn(GeneratedSDK.prototype, 'callApi').mockImplementation(async function (this: GeneratedSDK) {
       hosts.push(this._endpoint); throw Object.assign(new Error('refused'), { code: 'ECONNREFUSED' });
     });
-    await expect(client('https://agentcore-pre.aliyuncs.com').resolveMCP('test')).rejects.toBeInstanceOf(InvocationError);
-    expect(hosts).toEqual(['agentcore-pre.aliyuncs.com']);
+    await expect(client('https://custom.example.com').resolveMCP('test')).rejects.toBeInstanceOf(InvocationError);
+    expect(hosts).toEqual(['custom.example.com']);
   });
   it('signs exact model queries, follows pagination, then resolves the model within the connection', async () => {
     const calls: Array<{ url: string; authorization?: string; token?: string | string[] }> = [];

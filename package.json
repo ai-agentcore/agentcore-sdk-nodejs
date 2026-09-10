@@ -3,6 +3,10 @@
   "version": "0.1.0",
   "description": "AgentCore runtime SDK for Node.js",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ai-agentcore/agentcore-sdk-nodejs.git"
+  },
   "type": "module",
   "engines": {
     "node": ">=20.3.0"

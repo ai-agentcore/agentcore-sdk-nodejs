@@ -1,0 +1,98 @@
+name: Publish npm package
+
+on:
+  push:
+    tags:
+      - 'sdk-v*'
+      - 'collaboration-v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-npm-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      package: ${{ steps.package.outputs.package }}
+      filename: ${{ steps.package.outputs.filename }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Select package and verify tag version
+        id: package
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          node --input-type=module <<'JS'
+          import { readFileSync, appendFileSync } from 'node:fs';
+
+          const tag = process.env.RELEASE_TAG;
+          const match = /^(sdk|collaboration)-v((?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))$/.exec(tag);
+          if (!match) throw new Error(`Unsupported release tag: ${tag}`);
+          const directory = match[1] === 'sdk' ? '.' : 'packages/collaboration';
+          const metadata = JSON.parse(readFileSync(`${directory}/package.json`, 'utf8'));
+          if (match[2] !== metadata.version) {
+            throw new Error(`Tag version ${match[2]} does not match ${metadata.name} ${metadata.version}`);
+          }
+          appendFileSync(process.env.GITHUB_OUTPUT,
+            `directory=${directory}\npackage=${metadata.name}\nfilename=${metadata.name}-${metadata.version}.tgz\n`);
+          console.log(`Building ${metadata.name} ${metadata.version}`);
+          JS
+      - run: npm ci
+      - name: SDK types, tests and build
+        run: |
+          npm run typecheck
+          npm test
+          npm run build
+      - name: Collaboration types, tests and build
+        if: steps.package.outputs.directory == 'packages/collaboration'
+        run: |
+          npm --prefix packages/collaboration ci
+          npm --prefix packages/collaboration run typecheck
+          npm --prefix packages/collaboration test
+          npm --prefix packages/collaboration run build
+      - name: Pack selected package
+        working-directory: ${{ steps.package.outputs.directory }}
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/release"
+          npm pack --ignore-scripts --pack-destination "$GITHUB_WORKSPACE/release"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: npm-package
+          path: release/*.tgz
+          if-no-files-found: error
+
+  publish:
+    if: github.repository == 'ai-agentcore/agentcore-sdk-nodejs'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/${{ needs.build.outputs.package }}
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          package-manager-cache: false
+      - name: Install npm with Trusted Publishing support
+        run: npm install --global npm@11 --registry=https://registry.npmjs.org
+      - uses: actions/download-artifact@v4
+        with:
+          name: npm-package
+          path: release
+      - name: Publish to npm
+        env:
+          PACKAGE_FILENAME: ${{ needs.build.outputs.filename }}
+        run: npm publish "release/$PACKAGE_FILENAME" --ignore-scripts --access public --registry=https://registry.npmjs.org

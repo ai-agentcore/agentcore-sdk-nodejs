@@ -3,6 +3,8 @@
 `ci.yml` runs on pull requests, pushes to `main`, and manual dispatch.
 It does not publish packages or require cloud credentials.
 
+Tag-triggered npm publishing is separate; see [RELEASING.md](RELEASING.md).
+
 - Node 22 and 24 run type checks, Vitest tests and builds for the SDK and
   collaboration package. These versions also satisfy the current optional
   frameworks' Node requirements.

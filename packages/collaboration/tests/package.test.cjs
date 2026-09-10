@@ -5,6 +5,13 @@ const { tmpdir } = require('node:os');
 const { join, resolve } = require('node:path');
 const { spawnSync } = require('node:child_process');
 
+test('published addon includes the Apache license', () => {
+  const result = spawnSync('npm', ['pack', '--dry-run', '--ignore-scripts', '--json'], { encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.ok(JSON.parse(result.stdout)[0].files.some(file => file.path === 'LICENSE'));
+  assert.equal(readFileSync('LICENSE', 'utf8'), readFileSync('../../LICENSE', 'utf8'));
+});
+
 test('independent addon tarballs share Core contracts across ESM/CJS and upgrade without replacing Core', () => {
   const temporary = mkdtempSync(join(tmpdir(), 'agentcore-collaboration-package-'));
   const run = (command, args, cwd = temporary) => {

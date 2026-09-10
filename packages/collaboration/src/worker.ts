@@ -1,12 +1,12 @@
 import { fileURLToPath } from 'node:url';
 import { lookup } from 'mime-types';
-import { Tool, type ToolArguments } from '@alibabacloud/agentcore-sdk';
-import { Skills, type Skill } from '@alibabacloud/agentcore-sdk/skill';
+import { Tool, type ToolArguments } from 'alibabacloud-agentcore-sdk';
+import { Skills, type Skill } from 'alibabacloud-agentcore-sdk/skill';
 import { bindCollaborationContext, currentCollaborationContext, CollaborationError, CollaborationConfigError,
   CollaborationContextError, CollaborationContextRequiredError, CollaborationDisabledError,
   CollaborationRoleUnsupportedError, CollaborationTaskConflictError, CollaborationTaskNotFoundError,
   CollaborationTaskUnauthorizedError, CollaborationTaskUnavailableError, CollaborationTeamUnavailableError,
-  CollaborationToolArgumentError, type CollaborationTurnContext } from '@alibabacloud/agentcore-sdk/collaboration';
+  CollaborationToolArgumentError, type CollaborationTurnContext } from 'alibabacloud-agentcore-sdk/collaboration';
 import { TeamsProvider, type TeamsSnapshot } from './teams';
 import { TaskServiceClient } from './task-service';
 import { CollaborationWorkspace, teamPath } from './workspace';

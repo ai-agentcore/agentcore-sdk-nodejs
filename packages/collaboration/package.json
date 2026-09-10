@@ -1,5 +1,5 @@
 {
-  "name": "@alibabacloud/agentcore-collaboration",
+  "name": "alibabacloud-agentcore-collaboration",
   "version": "0.1.0",
   "description": "Independently versioned AgentCore Worker collaboration",
   "license": "Apache-2.0",
@@ -22,9 +22,9 @@
     "prepack": "npm run typecheck && npm run build"
   },
   "dependencies": { "yaml": "^2.8.1", "mime-types": "^3.0.1" },
-  "peerDependencies": { "@alibabacloud/agentcore-sdk": "^0.1.0" },
+  "peerDependencies": { "alibabacloud-agentcore-sdk": "^0.1.0" },
   "devDependencies": {
-    "@alibabacloud/agentcore-sdk": "file:../..",
+    "alibabacloud-agentcore-sdk": "file:../..",
     "@types/node": "^20.19.0",
     "@types/mime-types": "^3.0.1",
     "tsup": "^8.5.1",

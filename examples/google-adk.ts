@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { LlmAgent, Runner, InMemorySessionService, PRELOAD_MEMORY, StreamingMode, isFinalResponse } from '@google/adk';
-import { AgentCore } from '@alibabacloud/agentcore-sdk';
-import { model, tools, skillTools, AgentCoreMemoryService } from '@alibabacloud/agentcore-sdk/integrations/google-adk';
+import { AgentCore } from 'alibabacloud-agentcore-sdk';
+import { model, tools, skillTools, AgentCoreMemoryService } from 'alibabacloud-agentcore-sdk/integrations/google-adk';
 
 // Cloud example. The app owns the logical user identity and Session lifetime.
 const core = AgentCore.auto({ logger: console });

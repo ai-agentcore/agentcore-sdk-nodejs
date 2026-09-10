@@ -1,6 +1,6 @@
 import { realpath, stat } from 'node:fs/promises';
-import { RuntimeEnvironmentProvider } from '@alibabacloud/agentcore-sdk/runtime';
-import { CollaborationConfigError, type CollaborationOptions, type CollaborationRuntime } from '@alibabacloud/agentcore-sdk/collaboration';
+import { RuntimeEnvironmentProvider } from 'alibabacloud-agentcore-sdk/runtime';
+import { CollaborationConfigError, type CollaborationOptions, type CollaborationRuntime } from 'alibabacloud-agentcore-sdk/collaboration';
 import { DebugCollaborationRuntime } from './debug';
 import { TeamsProvider } from './teams';
 import { TaskServiceClient } from './task-service';

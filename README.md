@@ -32,7 +32,7 @@
 > 当前分支处于公开发布准备阶段。以下为公开发行版的安装方式，包的可用版本以正式发布为准。
 
 ```bash
-npm install @alibabacloud/agentcore-sdk
+npm install alibabacloud-agentcore-sdk
 ```
 
 框架依赖按需安装，见 [示例指南](examples/README.md#框架依赖)。
@@ -44,7 +44,7 @@ npm install @alibabacloud/agentcore-sdk
 先参考[官方文档](https://help.aliyun.com/zh/agentcore/)创建 Workspace，再按需准备模型连接、MCP 和 Skill，并为 Agent 授予访问权限。以下代码在部署到 AgentCore 的应用中运行；将资源名称替换为当前 Workspace 中自己的资源名称。只使用模型时，无需创建 MCP 或 Skill。
 
 ```typescript
-import { AgentCore } from '@alibabacloud/agentcore-sdk';
+import { AgentCore } from 'alibabacloud-agentcore-sdk';
 
 const core = AgentCore.auto();
 try {
@@ -89,7 +89,7 @@ SDK 会复制配置，不同 Header 配置使用不同客户端和 Session；不
 连接自有模型、MCP 服务，无需在 AgentCore 注册资源：
 
 ```typescript
-import { AgentCore } from '@alibabacloud/agentcore-sdk';
+import { AgentCore } from 'alibabacloud-agentcore-sdk';
 
 const core = new AgentCore();
 try {
@@ -115,7 +115,7 @@ try {
 Memory 用于保存和检索长期记忆，也支持查询、更新、删除记忆以及查看会话消息。使用前，在 AgentCore 中创建 MemoryStore 并授予应用访问权限。
 
 ```typescript
-import { AgentCore } from '@alibabacloud/agentcore-sdk';
+import { AgentCore } from 'alibabacloud-agentcore-sdk';
 
 const core = AgentCore.auto();
 try {

@@ -1,6 +1,6 @@
 # AgentCore Node Server
 
-入口为 `@alibabacloud/agentcore-sdk/server`。Server 只负责接收 Agent 请求与协议编码，不创建 Core、不读取 agent.yaml，不根据请求中的 `model` 去选择平台模型；模型资源由业务处理函数自行选择。
+入口为 `alibabacloud-agentcore-sdk/server`。Server 只负责接收 Agent 请求与协议编码，不创建 Core、不读取 agent.yaml，不根据请求中的 `model` 去选择平台模型；模型资源由业务处理函数自行选择。
 
 ## 默认路由
 
@@ -13,7 +13,7 @@
 | `POST /ag-ui/agent` | AG-UI RunAgentInput 输入，SSE 输出 |
 
 ```typescript
-import { AgentCoreServer, AgentEvent, EventType } from '@alibabacloud/agentcore-sdk/server';
+import { AgentCoreServer, AgentEvent, EventType } from 'alibabacloud-agentcore-sdk/server';
 
 const server = new AgentCoreServer({
   logger: console,

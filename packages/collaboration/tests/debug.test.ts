@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { ConfigError } from '@alibabacloud/agentcore-sdk';
-import { CollaborationConfigError } from '@alibabacloud/agentcore-sdk/collaboration';
+import { ConfigError } from 'alibabacloud-agentcore-sdk';
+import { CollaborationConfigError } from 'alibabacloud-agentcore-sdk/collaboration';
 import { DebugCollaborationRuntime } from '../src/debug';
 import { teamsConfig } from './helpers';
 afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); });

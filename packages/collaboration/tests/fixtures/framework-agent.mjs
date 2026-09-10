@@ -12,13 +12,13 @@ import { ToolNode, toolsCondition } from '@langchain/langgraph/prebuilt';
 import { LlmAgent, Runner, InMemorySessionService, StreamingMode } from '@google/adk';
 import { Agent as MastraAgent } from '@mastra/core/agent';
 import { EventSchemas } from '@ag-ui/core';
-import { AgentCore } from '@alibabacloud/agentcore-sdk';
-import { AgentCoreServer, AgentEvent, EventType } from '@alibabacloud/agentcore-sdk/server';
-import { currentCollaborationContext } from '@alibabacloud/agentcore-sdk/collaboration';
-import { skillTools } from '@alibabacloud/agentcore-sdk/skill';
-import * as chain from '@alibabacloud/agentcore-sdk/integrations/langchain';
-import * as adk from '@alibabacloud/agentcore-sdk/integrations/google-adk';
-import * as mastra from '@alibabacloud/agentcore-sdk/integrations/mastra';
+import { AgentCore } from 'alibabacloud-agentcore-sdk';
+import { AgentCoreServer, AgentEvent, EventType } from 'alibabacloud-agentcore-sdk/server';
+import { currentCollaborationContext } from 'alibabacloud-agentcore-sdk/collaboration';
+import { skillTools } from 'alibabacloud-agentcore-sdk/skill';
+import * as chain from 'alibabacloud-agentcore-sdk/integrations/langchain';
+import * as adk from 'alibabacloud-agentcore-sdk/integrations/google-adk';
+import * as mastra from 'alibabacloud-agentcore-sdk/integrations/mastra';
 
 async function server(handler) {
   const instance = createServer((req, res) => { Promise.resolve(handler(req, res)).catch(error => { res.statusCode = 500; res.end(String(error)); }); });

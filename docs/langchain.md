@@ -16,8 +16,8 @@ npm install @langchain/anthropic@^1.5.9
 ## 模型和工具
 
 ```typescript
-import { AgentCore } from '@alibabacloud/agentcore-sdk';
-import { model, tools, skillTools } from '@alibabacloud/agentcore-sdk/integrations/langchain';
+import { AgentCore } from 'alibabacloud-agentcore-sdk';
+import { model, tools, skillTools } from 'alibabacloud-agentcore-sdk/integrations/langchain';
 import { createAgent } from 'langchain';
 
 const core = AgentCore.auto();

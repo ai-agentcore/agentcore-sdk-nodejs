@@ -1,4 +1,4 @@
-export * from '@alibabacloud/agentcore-sdk/collaboration';
+export * from 'alibabacloud-agentcore-sdk/collaboration';
 export * from './teams';
 export * from './task-service';
 export * from './debug';

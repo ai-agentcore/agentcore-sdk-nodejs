@@ -1,6 +1,6 @@
 import { lstat, mkdir, mkdtemp, readdir, realpath, rename, link, rm, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
-import { CollaborationConfigError, CollaborationToolArgumentError } from '@alibabacloud/agentcore-sdk/collaboration';
+import { CollaborationConfigError, CollaborationToolArgumentError } from 'alibabacloud-agentcore-sdk/collaboration';
 
 /** File capabilities exposed to the model are restricted to the application's workspace. */
 export class CollaborationWorkspace {

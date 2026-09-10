@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
 import { afterEach, expect, it } from 'vitest';
 import { TaskServiceClient } from '../src/task-service';
-import { CollaborationConfigError, CollaborationTaskUnavailableError, CollaborationTaskUnauthorizedError } from '@alibabacloud/agentcore-sdk/collaboration';
+import { CollaborationConfigError, CollaborationTaskUnavailableError, CollaborationTaskUnauthorizedError } from 'alibabacloud-agentcore-sdk/collaboration';
 import { httpServer, snapshot } from './helpers';
 const cleanup: (() => unknown | Promise<unknown>)[] = [];
 afterEach(async () => { for (const close of cleanup.splice(0).reverse()) await close(); });

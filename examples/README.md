@@ -29,7 +29,7 @@ npm run build
 npx tsx examples/cloud-resources.ts
 ```
 
-云端示例用于部署在 AgentCore 中的应用。示例使用公开包名 `@alibabacloud/agentcore-sdk` 及对应子路径，可直接复制到自己的项目。仓库内运行时通过同名包的 exports 使用本地 `dist`，因此请先执行 `npm run build`；修改 SDK 源码后也需要重新构建。
+云端示例用于部署在 AgentCore 中的应用。示例使用公开包名 `alibabacloud-agentcore-sdk` 及对应子路径，可直接复制到自己的项目。仓库内运行时通过同名包的 exports 使用本地 `dist`，因此请先执行 `npm run build`；修改 SDK 源码后也需要重新构建。
 
 | 示例 | 内容 |
 | --- | --- |

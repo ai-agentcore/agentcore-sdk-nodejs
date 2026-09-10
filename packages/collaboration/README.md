@@ -9,7 +9,7 @@
 公开发行版的安装方式（可用版本以正式发布为准）：
 
 ```bash
-npm install @alibabacloud/agentcore-sdk @alibabacloud/agentcore-collaboration
+npm install alibabacloud-agentcore-sdk alibabacloud-agentcore-collaboration
 ```
 
 协作包 0.1.x 适用于基础 SDK `^0.1.0`，需要 Node.js 20.3+。同时使用框架时，还需满足该框架的版本要求。
@@ -28,9 +28,9 @@ npm install langchain@^1 @langchain/core@^1 @langchain/langgraph@^1 \
 先在 AgentCore 中为 Agent 配置团队和 Worker 角色，再将协作指令、工具及 Skill 加入 Agent：
 
 ```typescript
-import { AgentCore } from '@alibabacloud/agentcore-sdk';
-import { skillTools } from '@alibabacloud/agentcore-sdk/skill';
-import { tools } from '@alibabacloud/agentcore-sdk/integrations/langchain';
+import { AgentCore } from 'alibabacloud-agentcore-sdk';
+import { skillTools } from 'alibabacloud-agentcore-sdk/skill';
+import { tools } from 'alibabacloud-agentcore-sdk/integrations/langchain';
 
 const core = AgentCore.auto();
 const worker = await core.collaboration.worker();
@@ -53,7 +53,7 @@ const agentTools = tools([...worker.tools(), ...skillTools(await worker.skills()
 
 ```typescript
 import { createAgent } from 'langchain';
-import { model } from '@alibabacloud/agentcore-sdk/integrations/langchain';
+import { model } from 'alibabacloud-agentcore-sdk/integrations/langchain';
 
 const client = await core.model('test-mc', { model: 'qwen3.8-max' });
 const agent = createAgent({
@@ -102,7 +102,7 @@ async function streamAgent(
 ## 升级
 
 ```bash
-npm update @alibabacloud/agentcore-collaboration
+npm update alibabacloud-agentcore-collaboration
 ```
 
 保持基础 SDK 版本兼容，升级后重启应用即可使用新的协作能力。镜像部署时请重新构建镜像。

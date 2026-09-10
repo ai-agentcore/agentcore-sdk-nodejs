@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
-import { AgentCoreError, type Logger } from '@alibabacloud/agentcore-sdk';
-import { CollaborationConfigError } from '@alibabacloud/agentcore-sdk/collaboration';
-import { httpUrl } from '@alibabacloud/agentcore-sdk/runtime';
+import { AgentCoreError, type Logger } from 'alibabacloud-agentcore-sdk';
+import { CollaborationConfigError } from 'alibabacloud-agentcore-sdk/collaboration';
+import { httpUrl } from 'alibabacloud-agentcore-sdk/runtime';
 import { parseTeamsConfig, type TeamsSnapshot } from './teams';
 
 /** Supplied by the base SDK's DebugRuntimeSource; the addon does not own its lifetime. */

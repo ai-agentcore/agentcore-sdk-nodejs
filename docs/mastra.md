@@ -12,8 +12,8 @@ npm install @mastra/core@^1.64.0 ai@^6.0.277 @ai-sdk/provider@^3.0.15 \
 ```typescript
 import { Agent } from '@mastra/core/agent';
 import { RequestContext } from '@mastra/core/request-context';
-import { AgentCore } from '@alibabacloud/agentcore-sdk';
-import { model, tools, skillTools, AgentCoreMemoryProcessor } from '@alibabacloud/agentcore-sdk/integrations/mastra';
+import { AgentCore } from 'alibabacloud-agentcore-sdk';
+import { model, tools, skillTools, AgentCoreMemoryProcessor } from 'alibabacloud-agentcore-sdk/integrations/mastra';
 
 const core = AgentCore.auto();
 try {

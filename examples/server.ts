@@ -1,4 +1,4 @@
-import { AgentCoreServer, AgentEvent, EventType } from '@alibabacloud/agentcore-sdk/server';
+import { AgentCoreServer, AgentEvent, EventType } from 'alibabacloud-agentcore-sdk/server';
 
 // Protocol smoke example: no cloud credentials or agent.yaml required.
 const server = new AgentCoreServer({

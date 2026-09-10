@@ -17,7 +17,7 @@ export class CollaborationClient {
   }
   private async load(): Promise<CollaborationRuntime> {
     // Keep the addon optional and resolved from the application's installation at runtime.
-    const packageName = '@alibabacloud/agentcore-collaboration';
+    const packageName = 'alibabacloud-agentcore-collaboration';
     const addon = await import(packageName) as { Collaboration: new (options: CollaborationOptions) => CollaborationRuntime };
     return new addon.Collaboration(this.options);
   }

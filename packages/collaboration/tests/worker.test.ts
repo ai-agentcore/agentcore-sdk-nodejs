@@ -2,9 +2,9 @@ import { mkdtemp, mkdir, readFile, readdir, realpath, rm, symlink, writeFile } f
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { afterEach, expect, it } from 'vitest';
-import { AgentCore } from '@alibabacloud/agentcore-sdk';
-import { skillTools } from '@alibabacloud/agentcore-sdk/skill';
-import { languageModel, tools as aiTools } from '@alibabacloud/agentcore-sdk/integrations/ai-sdk';
+import { AgentCore } from 'alibabacloud-agentcore-sdk';
+import { skillTools } from 'alibabacloud-agentcore-sdk/skill';
+import { languageModel, tools as aiTools } from 'alibabacloud-agentcore-sdk/integrations/ai-sdk';
 import { generateText, stepCountIs } from 'ai';
 import { TaskServiceClient, WorkerCollaboration } from '../src';
 import { httpServer, snapshot, teamsConfig } from './helpers';

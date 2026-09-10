@@ -12,9 +12,9 @@ npm install ai@^6.0.277 @ai-sdk/provider@^3.0.15 \
 ```
 
 ```typescript
-import { AgentCore } from '@alibabacloud/agentcore-sdk';
-import { languageModel, tools } from '@alibabacloud/agentcore-sdk/integrations/ai-sdk';
-import { skillTools } from '@alibabacloud/agentcore-sdk/skill';
+import { AgentCore } from 'alibabacloud-agentcore-sdk';
+import { languageModel, tools } from 'alibabacloud-agentcore-sdk/integrations/ai-sdk';
+import { skillTools } from 'alibabacloud-agentcore-sdk/skill';
 import { generateText, stepCountIs } from 'ai';
 
 const core = AgentCore.auto();

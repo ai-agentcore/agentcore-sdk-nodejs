@@ -1,8 +1,8 @@
 import { AIMessage, HumanMessage } from '@langchain/core/messages';
 import { END, START, MessagesAnnotation, StateGraph } from '@langchain/langgraph';
 import { ToolNode } from '@langchain/langgraph/prebuilt';
-import { AgentCore } from '@alibabacloud/agentcore-sdk';
-import { model, tools, skillTools } from '@alibabacloud/agentcore-sdk/integrations/langgraph';
+import { AgentCore } from 'alibabacloud-agentcore-sdk';
+import { model, tools, skillTools } from 'alibabacloud-agentcore-sdk/integrations/langgraph';
 
 const core = AgentCore.auto({ logger: console });
 try {

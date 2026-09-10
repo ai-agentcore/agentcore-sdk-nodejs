@@ -1,6 +1,6 @@
 # Google ADK
 
-入口为 `@alibabacloud/agentcore-sdk/integrations/google-adk`，提供 `model()`、`tools()`、`skillTools()` 和 `AgentCoreMemoryService`。实现基于 Node ADK 2.0 的公开扩展接口；不是把 Python LiteLLM 类名复制为 Node 占位实现。
+入口为 `alibabacloud-agentcore-sdk/integrations/google-adk`，提供 `model()`、`tools()`、`skillTools()` 和 `AgentCoreMemoryService`。实现基于 Node ADK 2.0 的公开扩展接口；不是把 Python LiteLLM 类名复制为 Node 占位实现。
 
 ## 按需安装
 
@@ -15,8 +15,8 @@ npm install ai@^6.0.277 @ai-sdk/provider@^3.0.15 @ai-sdk/openai-compatible@^2.0.
 ## 原生 Agent
 
 ```typescript
-import { AgentCore } from '@alibabacloud/agentcore-sdk';
-import { model, tools, skillTools, AgentCoreMemoryService } from '@alibabacloud/agentcore-sdk/integrations/google-adk';
+import { AgentCore } from 'alibabacloud-agentcore-sdk';
+import { model, tools, skillTools, AgentCoreMemoryService } from 'alibabacloud-agentcore-sdk/integrations/google-adk';
 import { LlmAgent, Runner, InMemorySessionService, PRELOAD_MEMORY } from '@google/adk';
 
 const core = AgentCore.auto();

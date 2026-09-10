@@ -16,7 +16,7 @@ npm install ai@^6 @ai-sdk/provider@^3 @ai-sdk/google@^3
 ```
 
 ```typescript
-import { AgentCore } from '@alibabacloud/agentcore-sdk';
+import { AgentCore } from 'alibabacloud-agentcore-sdk';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 
 const google = createGoogleGenerativeAI({ apiKey: process.env.GOOGLE_API_KEY });

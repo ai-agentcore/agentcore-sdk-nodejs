@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { afterEach, expect, it } from 'vitest';
 import { Collaboration } from '../src';
-import { CollaborationConfigError } from '@alibabacloud/agentcore-sdk/collaboration';
+import { CollaborationConfigError } from 'alibabacloud-agentcore-sdk/collaboration';
 import { httpServer, teamsConfig } from './helpers';
 const cleanup: Array<() => unknown | Promise<unknown>> = [];
 afterEach(async () => { for (const close of cleanup.splice(0).reverse()) await close(); });

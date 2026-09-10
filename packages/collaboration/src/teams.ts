@@ -1,8 +1,8 @@
 import { readFile, stat } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { parseDocument, visit } from 'yaml';
-import { CollaborationConfigError } from '@alibabacloud/agentcore-sdk/collaboration';
-import type { Logger } from '@alibabacloud/agentcore-sdk';
+import { CollaborationConfigError } from 'alibabacloud-agentcore-sdk/collaboration';
+import type { Logger } from 'alibabacloud-agentcore-sdk';
 
 export const DEFAULT_TEAMS_PATH = '/var/run/agentcore/agent/teams.yaml';
 export type TeamRole = 'leader' | 'worker' | 'manager' | 'admin' | 'human' | 'member';

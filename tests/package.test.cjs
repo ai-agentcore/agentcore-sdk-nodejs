@@ -43,12 +43,12 @@ test('packed ESM and CJS consumers share classes and request context across subp
         finally { await core.close(); cp.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
       })().catch(error => { console.error(error); process.exitCode = 1; });
     `;
-    writeFileSync(join(temp, 'consumer.cjs'), `const root = require('@alibabacloud/agentcore-sdk'); const auth = require('@alibabacloud/agentcore-sdk/auth'); const runtime = require('@alibabacloud/agentcore-sdk/runtime'); const controlplane = require('@alibabacloud/agentcore-sdk/controlplane'); const skill = require('@alibabacloud/agentcore-sdk/skill'); const model = require('@alibabacloud/agentcore-sdk/model'); const mcp = require('@alibabacloud/agentcore-sdk/mcp'); const memory = require('@alibabacloud/agentcore-sdk/memory'); ${assertions}`);
-    writeFileSync(join(temp, 'consumer.mjs'), `import { createRequire } from 'node:module'; const require = createRequire(import.meta.url); import * as root from '@alibabacloud/agentcore-sdk'; import * as auth from '@alibabacloud/agentcore-sdk/auth'; import * as runtime from '@alibabacloud/agentcore-sdk/runtime'; import * as controlplane from '@alibabacloud/agentcore-sdk/controlplane'; import * as skill from '@alibabacloud/agentcore-sdk/skill'; import * as model from '@alibabacloud/agentcore-sdk/model'; import * as mcp from '@alibabacloud/agentcore-sdk/mcp'; import * as memory from '@alibabacloud/agentcore-sdk/memory'; ${assertions}`);
+    writeFileSync(join(temp, 'consumer.cjs'), `const root = require('alibabacloud-agentcore-sdk'); const auth = require('alibabacloud-agentcore-sdk/auth'); const runtime = require('alibabacloud-agentcore-sdk/runtime'); const controlplane = require('alibabacloud-agentcore-sdk/controlplane'); const skill = require('alibabacloud-agentcore-sdk/skill'); const model = require('alibabacloud-agentcore-sdk/model'); const mcp = require('alibabacloud-agentcore-sdk/mcp'); const memory = require('alibabacloud-agentcore-sdk/memory'); ${assertions}`);
+    writeFileSync(join(temp, 'consumer.mjs'), `import { createRequire } from 'node:module'; const require = createRequire(import.meta.url); import * as root from 'alibabacloud-agentcore-sdk'; import * as auth from 'alibabacloud-agentcore-sdk/auth'; import * as runtime from 'alibabacloud-agentcore-sdk/runtime'; import * as controlplane from 'alibabacloud-agentcore-sdk/controlplane'; import * as skill from 'alibabacloud-agentcore-sdk/skill'; import * as model from 'alibabacloud-agentcore-sdk/model'; import * as mcp from 'alibabacloud-agentcore-sdk/mcp'; import * as memory from 'alibabacloud-agentcore-sdk/memory'; ${assertions}`);
     run(process.execPath, ['consumer.mjs'], temp);
     run(process.execPath, ['consumer.cjs'], temp);
-    writeFileSync(join(temp, 'consumer.ts'), `import { AgentCore, AccessKeyCredential } from '@alibabacloud/agentcore-sdk';
-      import type { MemoryScope } from '@alibabacloud/agentcore-sdk/memory';
+    writeFileSync(join(temp, 'consumer.ts'), `import { AgentCore, AccessKeyCredential } from 'alibabacloud-agentcore-sdk';
+      import type { MemoryScope } from 'alibabacloud-agentcore-sdk/memory';
       const core = new AgentCore({ workspaceId: 'ws', regionId: 'cn-hangzhou', accessKeyCredential: new AccessKeyCredential({ accessKeyId: 'ak', accessKeySecret: 'sk' }) });
       const scope: MemoryScope = { userId: 'u' };
       void core.memoryStore('mem').addMemories({ scope, text: 'fact' });
@@ -73,8 +73,8 @@ test('packed ESM and CJS consumers share classes and request context across subp
         assert.deepEqual(await tool.runAsync({ args: { text: 'echoed' } }), { text: 'echoed' });
       } finally { await core.close(); }
     })().catch(error => { console.error(error); process.exitCode = 1; });`;
-    writeFileSync(join(temp, 'adk-memory.mjs'), `import assert from 'node:assert/strict'; import { createRequire } from 'node:module'; const require = createRequire(import.meta.url); import * as root from '@alibabacloud/agentcore-sdk'; import * as adapter from '@alibabacloud/agentcore-sdk/integrations/google-adk'; import * as framework from '@google/adk'; ${adkAssertions}`);
-    writeFileSync(join(temp, 'adk-memory.cjs'), `const assert = require('node:assert/strict'); const root = require('@alibabacloud/agentcore-sdk'); const adapter = require('@alibabacloud/agentcore-sdk/integrations/google-adk'); const framework = require('@google/adk'); ${adkAssertions}`);
+    writeFileSync(join(temp, 'adk-memory.mjs'), `import assert from 'node:assert/strict'; import { createRequire } from 'node:module'; const require = createRequire(import.meta.url); import * as root from 'alibabacloud-agentcore-sdk'; import * as adapter from 'alibabacloud-agentcore-sdk/integrations/google-adk'; import * as framework from '@google/adk'; ${adkAssertions}`);
+    writeFileSync(join(temp, 'adk-memory.cjs'), `const assert = require('node:assert/strict'); const root = require('alibabacloud-agentcore-sdk'); const adapter = require('alibabacloud-agentcore-sdk/integrations/google-adk'); const framework = require('@google/adk'); ${adkAssertions}`);
     run(process.execPath, ['adk-memory.mjs'], temp); run(process.execPath, ['adk-memory.cjs'], temp);
     run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', 'ai@6.0.277', '@ai-sdk/provider@3.0.15', '@ai-sdk/openai-compatible@2.0.74', '@ai-sdk/openai@3.0.109', '@ai-sdk/anthropic@3.0.116', '@ai-sdk/google@3.0.121'], temp);
     const providerAssertions = `(async () => {
@@ -95,10 +95,10 @@ test('packed ESM and CJS consumers share classes and request context across subp
         await assert.rejects(client.invoke([{ role: 'user', content: 'closed' }]));
       } finally { await core.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
     })().catch(error => { console.error(error); process.exitCode = 1; });`;
-    writeFileSync(join(temp, 'provider.mjs'), `import assert from 'node:assert/strict'; import http from 'node:http'; import * as root from '@alibabacloud/agentcore-sdk'; import * as models from '@alibabacloud/agentcore-sdk/model'; import { createGoogleGenerativeAI } from '@ai-sdk/google'; ${providerAssertions}`);
-    writeFileSync(join(temp, 'provider.cjs'), `const assert = require('node:assert/strict'); const http = require('node:http'); const root = require('@alibabacloud/agentcore-sdk'); const models = require('@alibabacloud/agentcore-sdk/model'); const { createGoogleGenerativeAI } = require('@ai-sdk/google'); ${providerAssertions}`);
+    writeFileSync(join(temp, 'provider.mjs'), `import assert from 'node:assert/strict'; import http from 'node:http'; import * as root from 'alibabacloud-agentcore-sdk'; import * as models from 'alibabacloud-agentcore-sdk/model'; import { createGoogleGenerativeAI } from '@ai-sdk/google'; ${providerAssertions}`);
+    writeFileSync(join(temp, 'provider.cjs'), `const assert = require('node:assert/strict'); const http = require('node:http'); const root = require('alibabacloud-agentcore-sdk'); const models = require('alibabacloud-agentcore-sdk/model'); const { createGoogleGenerativeAI } = require('@ai-sdk/google'); ${providerAssertions}`);
     run(process.execPath, ['provider.mjs'], temp); run(process.execPath, ['provider.cjs'], temp);
-    writeFileSync(join(temp, 'provider.ts'), `import { AgentCore } from '@alibabacloud/agentcore-sdk';
+    writeFileSync(join(temp, 'provider.ts'), `import { AgentCore } from 'alibabacloud-agentcore-sdk';
       import { createGoogleGenerativeAI } from '@ai-sdk/google';
       const google = createGoogleGenerativeAI({ apiKey: 'local-key' });
       const client = new AgentCore().directModel({ languageModel: google('gemini-test'), embeddingModel: google.embeddingModel('embedding-test') });
@@ -123,8 +123,8 @@ test('packed ESM and CJS consumers share classes and request context across subp
         assert.deepEqual(Object.keys(adapter.tools([])), []);
       } finally { await core.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
     })().catch(error => { console.error(error); process.exitCode = 1; });`;
-    writeFileSync(join(temp, 'ai.mjs'), `import assert from 'node:assert/strict'; import * as http from 'node:http'; import * as root from '@alibabacloud/agentcore-sdk'; import * as adapter from '@alibabacloud/agentcore-sdk/integrations/ai-sdk'; import * as ai from 'ai'; ${aiAssertions}`);
-    writeFileSync(join(temp, 'ai.cjs'), `const assert = require('node:assert/strict'); const http = require('node:http'); const root = require('@alibabacloud/agentcore-sdk'); const adapter = require('@alibabacloud/agentcore-sdk/integrations/ai-sdk'); const ai = require('ai'); ${aiAssertions}`);
+    writeFileSync(join(temp, 'ai.mjs'), `import assert from 'node:assert/strict'; import * as http from 'node:http'; import * as root from 'alibabacloud-agentcore-sdk'; import * as adapter from 'alibabacloud-agentcore-sdk/integrations/ai-sdk'; import * as ai from 'ai'; ${aiAssertions}`);
+    writeFileSync(join(temp, 'ai.cjs'), `const assert = require('node:assert/strict'); const http = require('node:http'); const root = require('alibabacloud-agentcore-sdk'); const adapter = require('alibabacloud-agentcore-sdk/integrations/ai-sdk'); const ai = require('ai'); ${aiAssertions}`);
     run(process.execPath, ['ai.mjs'], temp); run(process.execPath, ['ai.cjs'], temp);
     const adkModelAssertions = `(async () => {
       const server = http.createServer((req, res) => {
@@ -143,8 +143,8 @@ test('packed ESM and CJS consumers share classes and request context across subp
         assert.equal(events.at(-1).content.parts[0].text, 'packed ADK');
       } finally { await core.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
     })().catch(error => { console.error(error); process.exitCode = 1; });`;
-    writeFileSync(join(temp, 'adk-model.mjs'), `import assert from 'node:assert/strict'; import * as http from 'node:http'; import * as root from '@alibabacloud/agentcore-sdk'; import * as adapter from '@alibabacloud/agentcore-sdk/integrations/google-adk'; import * as framework from '@google/adk'; ${adkModelAssertions}`);
-    writeFileSync(join(temp, 'adk-model.cjs'), `const assert = require('node:assert/strict'); const http = require('node:http'); const root = require('@alibabacloud/agentcore-sdk'); const adapter = require('@alibabacloud/agentcore-sdk/integrations/google-adk'); const framework = require('@google/adk'); ${adkModelAssertions}`);
+    writeFileSync(join(temp, 'adk-model.mjs'), `import assert from 'node:assert/strict'; import * as http from 'node:http'; import * as root from 'alibabacloud-agentcore-sdk'; import * as adapter from 'alibabacloud-agentcore-sdk/integrations/google-adk'; import * as framework from '@google/adk'; ${adkModelAssertions}`);
+    writeFileSync(join(temp, 'adk-model.cjs'), `const assert = require('node:assert/strict'); const http = require('node:http'); const root = require('alibabacloud-agentcore-sdk'); const adapter = require('alibabacloud-agentcore-sdk/integrations/google-adk'); const framework = require('@google/adk'); ${adkModelAssertions}`);
     run(process.execPath, ['adk-model.mjs'], temp); run(process.execPath, ['adk-model.cjs'], temp);
     run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', '@mastra/core@1.64.0'], temp);
     const mastraAssertions = `(async () => {
@@ -179,26 +179,26 @@ test('packed ESM and CJS consumers share classes and request context across subp
         assert.deepEqual(actions, ['SearchMemories', 'AddMemories']);
       } finally { await core.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
     })().catch(error => { console.error(error); process.exitCode = 1; });`;
-    writeFileSync(join(temp, 'mastra.mjs'), `import assert from 'node:assert/strict'; import * as http from 'node:http'; import * as root from '@alibabacloud/agentcore-sdk'; import * as adapter from '@alibabacloud/agentcore-sdk/integrations/mastra'; import * as framework from '@mastra/core/agent'; ${mastraAssertions}`);
-    writeFileSync(join(temp, 'mastra.cjs'), `const assert = require('node:assert/strict'); const http = require('node:http'); const root = require('@alibabacloud/agentcore-sdk'); const adapter = require('@alibabacloud/agentcore-sdk/integrations/mastra'); const framework = require('@mastra/core/agent'); ${mastraAssertions}`);
+    writeFileSync(join(temp, 'mastra.mjs'), `import assert from 'node:assert/strict'; import * as http from 'node:http'; import * as root from 'alibabacloud-agentcore-sdk'; import * as adapter from 'alibabacloud-agentcore-sdk/integrations/mastra'; import * as framework from '@mastra/core/agent'; ${mastraAssertions}`);
+    writeFileSync(join(temp, 'mastra.cjs'), `const assert = require('node:assert/strict'); const http = require('node:http'); const root = require('alibabacloud-agentcore-sdk'); const adapter = require('alibabacloud-agentcore-sdk/integrations/mastra'); const framework = require('@mastra/core/agent'); ${mastraAssertions}`);
     run(process.execPath, ['mastra.mjs'], temp); run(process.execPath, ['mastra.cjs'], temp);
-    writeFileSync(join(temp, 'mastra.ts'), `import { AgentCore } from '@alibabacloud/agentcore-sdk';
-      import { model, tools, skillTools, AgentCoreMemoryProcessor } from '@alibabacloud/agentcore-sdk/integrations/mastra';
+    writeFileSync(join(temp, 'mastra.ts'), `import { AgentCore } from 'alibabacloud-agentcore-sdk';
+      import { model, tools, skillTools, AgentCoreMemoryProcessor } from 'alibabacloud-agentcore-sdk/integrations/mastra';
       import { Agent } from '@mastra/core/agent';
       const core = new AgentCore(); const processor = new AgentCoreMemoryProcessor(core.memoryStore('mem'), { scopeResolver: () => ({ read: { agentId: 'a' } }) });
       new Agent({ id: 'agent', name: 'agent', instructions: 'Answer', model: await model(core.directModel({ model: 'm', baseURL: 'http://localhost/v1' })),
         tools: { ...tools([]), ...skillTools([]) }, inputProcessors: [processor], outputProcessors: [processor] });`);
     run(process.execPath, [require.resolve('typescript/bin/tsc'), '--noEmit', '--strict', '--skipLibCheck', '--target', 'ES2022', '--module', 'NodeNext', '--moduleResolution', 'NodeNext', 'mastra.ts'], temp);
-    writeFileSync(join(temp, 'adk.ts'), `import { AgentCore } from '@alibabacloud/agentcore-sdk';
-      import { model, AgentCoreMemoryService } from '@alibabacloud/agentcore-sdk/integrations/google-adk';
+    writeFileSync(join(temp, 'adk.ts'), `import { AgentCore } from 'alibabacloud-agentcore-sdk';
+      import { model, AgentCoreMemoryService } from 'alibabacloud-agentcore-sdk/integrations/google-adk';
       import { LlmAgent, Runner, InMemorySessionService } from '@google/adk';
       const core = new AgentCore(); const native = await model(core.directModel({ model: 'custom', baseURL: 'http://localhost/v1' }));
       const memory = new AgentCoreMemoryService(core.memoryStore('mem'), { partitionResolver: (app, user) => app + ':' + user });
       new Runner({ appName: 'app', agent: new LlmAgent({ name: 'agent', model: native }), memoryService: memory, sessionService: new InMemorySessionService() });`);
     run(process.execPath, [require.resolve('typescript/bin/tsc'), '--noEmit', '--strict', '--skipLibCheck', '--target', 'ES2022', '--module', 'NodeNext', '--moduleResolution', 'NodeNext', 'adk.ts'], temp);
-    writeFileSync(join(temp, 'ai.ts'), `import { AgentCore } from '@alibabacloud/agentcore-sdk';
-      import { ModelClient } from '@alibabacloud/agentcore-sdk/model';
-      import { languageModel } from '@alibabacloud/agentcore-sdk/integrations/ai-sdk';
+    writeFileSync(join(temp, 'ai.ts'), `import { AgentCore } from 'alibabacloud-agentcore-sdk';
+      import { ModelClient } from 'alibabacloud-agentcore-sdk/model';
+      import { languageModel } from 'alibabacloud-agentcore-sdk/integrations/ai-sdk';
       const core = new AgentCore();
       const model: ModelClient = core.directModel({ model: 'custom', baseURL: 'http://localhost/v1' });
       const language = languageModel(model); void language.doGenerate; void core.close();`);
@@ -214,10 +214,10 @@ test('packed ESM and CJS consumers share classes and request context across subp
         assert.equal((await response.json()).choices[0].message.content, 'served');
       } finally { await server.close(); }
     })().catch(error => { console.error(error); process.exitCode = 1; });`;
-    writeFileSync(join(temp, 'server.cjs'), `const assert = require('node:assert/strict'); const root = require('@alibabacloud/agentcore-sdk'); const api = require('@alibabacloud/agentcore-sdk/server'); ${serverAssertions}`);
-    writeFileSync(join(temp, 'server.mjs'), `import assert from 'node:assert/strict'; import * as root from '@alibabacloud/agentcore-sdk'; import * as api from '@alibabacloud/agentcore-sdk/server'; ${serverAssertions}`);
+    writeFileSync(join(temp, 'server.cjs'), `const assert = require('node:assert/strict'); const root = require('alibabacloud-agentcore-sdk'); const api = require('alibabacloud-agentcore-sdk/server'); ${serverAssertions}`);
+    writeFileSync(join(temp, 'server.mjs'), `import assert from 'node:assert/strict'; import * as root from 'alibabacloud-agentcore-sdk'; import * as api from 'alibabacloud-agentcore-sdk/server'; ${serverAssertions}`);
     run(process.execPath, ['server.cjs'], temp); run(process.execPath, ['server.mjs'], temp);
-    writeFileSync(join(temp, 'server.ts'), `import { AgentCoreServer, AgentEvent, EventType, type ProtocolHandler } from '@alibabacloud/agentcore-sdk/server';
+    writeFileSync(join(temp, 'server.ts'), `import { AgentCoreServer, AgentEvent, EventType, type ProtocolHandler } from 'alibabacloud-agentcore-sdk/server';
       const server = new AgentCoreServer({ invoke: async function* (request, context) {
         request.signal.throwIfAborted(); void context.headers;
         yield new AgentEvent(EventType.TEXT, { delta: 'hello' });
@@ -233,8 +233,8 @@ test('packed ESM and CJS consumers share classes and request context across subp
         await assert.rejects(nodes.recall({ memoryQuery: '', memoryReadScope: {} }), root.MemoryValidationError);
       } finally { await core.close(); }
     })().catch(error => { console.error(error); process.exitCode = 1; });`;
-    writeFileSync(join(temp, 'graph.mjs'), `import assert from 'node:assert/strict'; import * as root from '@alibabacloud/agentcore-sdk'; import * as graph from '@alibabacloud/agentcore-sdk/integrations/langgraph'; ${graphAssertions}`);
-    writeFileSync(join(temp, 'graph.cjs'), `const assert = require('node:assert/strict'); const root = require('@alibabacloud/agentcore-sdk'); const graph = require('@alibabacloud/agentcore-sdk/integrations/langgraph'); ${graphAssertions}`);
+    writeFileSync(join(temp, 'graph.mjs'), `import assert from 'node:assert/strict'; import * as root from 'alibabacloud-agentcore-sdk'; import * as graph from 'alibabacloud-agentcore-sdk/integrations/langgraph'; ${graphAssertions}`);
+    writeFileSync(join(temp, 'graph.cjs'), `const assert = require('node:assert/strict'); const root = require('alibabacloud-agentcore-sdk'); const graph = require('alibabacloud-agentcore-sdk/integrations/langgraph'); ${graphAssertions}`);
     run(process.execPath, ['graph.mjs'], temp); run(process.execPath, ['graph.cjs'], temp);
     run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', 'langchain@1.5.10', 'zod@4.5.4'], temp);
     const chainAssertions = `(async () => {
@@ -248,11 +248,11 @@ test('packed ESM and CJS consumers share classes and request context across subp
         assert.equal(core.config, undefined);
       } finally { await core.close(); }
     })().catch(error => { console.error(error); process.exitCode = 1; });`;
-    writeFileSync(join(temp, 'chain.mjs'), `import assert from 'node:assert/strict'; import * as root from '@alibabacloud/agentcore-sdk'; import * as chain from '@alibabacloud/agentcore-sdk/integrations/langchain'; import * as framework from 'langchain'; ${chainAssertions}`);
-    writeFileSync(join(temp, 'chain.cjs'), `const assert = require('node:assert/strict'); const root = require('@alibabacloud/agentcore-sdk'); const chain = require('@alibabacloud/agentcore-sdk/integrations/langchain'); const framework = require('langchain'); ${chainAssertions}`);
+    writeFileSync(join(temp, 'chain.mjs'), `import assert from 'node:assert/strict'; import * as root from 'alibabacloud-agentcore-sdk'; import * as chain from 'alibabacloud-agentcore-sdk/integrations/langchain'; import * as framework from 'langchain'; ${chainAssertions}`);
+    writeFileSync(join(temp, 'chain.cjs'), `const assert = require('node:assert/strict'); const root = require('alibabacloud-agentcore-sdk'); const chain = require('alibabacloud-agentcore-sdk/integrations/langchain'); const framework = require('langchain'); ${chainAssertions}`);
     run(process.execPath, ['chain.mjs'], temp); run(process.execPath, ['chain.cjs'], temp);
-    writeFileSync(join(temp, 'chain.ts'), `import { AgentCore } from '@alibabacloud/agentcore-sdk';
-      import { agentCoreMemoryMiddleware } from '@alibabacloud/agentcore-sdk/integrations/langchain';
+    writeFileSync(join(temp, 'chain.ts'), `import { AgentCore } from 'alibabacloud-agentcore-sdk';
+      import { agentCoreMemoryMiddleware } from 'alibabacloud-agentcore-sdk/integrations/langchain';
       import { createAgent, FakeToolCallingModel } from 'langchain'; import { z } from 'zod';
       const middleware = agentCoreMemoryMiddleware(new AgentCore().memoryStore('mem'), {
         contextSchema: z.object({ agentId: z.string(), sessionId: z.string() }),
@@ -285,12 +285,12 @@ test('packed ESM and CJS consumers share classes and request context across subp
         await assert.rejects(tool.invoke({ text: 42 }));
       } finally { await core.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
     })().catch(error => { console.error(error); process.exitCode = 1; });`;
-    writeFileSync(join(temp, 'chain-model.mjs'), `import assert from 'node:assert/strict'; import * as http from 'node:http'; import { createRequire } from 'node:module'; const require = createRequire(import.meta.url); import * as root from '@alibabacloud/agentcore-sdk'; import * as chain from '@alibabacloud/agentcore-sdk/integrations/langchain'; ${chainModelAssertions}`);
-    writeFileSync(join(temp, 'chain-model.cjs'), `const assert = require('node:assert/strict'); const http = require('node:http'); const root = require('@alibabacloud/agentcore-sdk'); const chain = require('@alibabacloud/agentcore-sdk/integrations/langchain'); ${chainModelAssertions}`);
+    writeFileSync(join(temp, 'chain-model.mjs'), `import assert from 'node:assert/strict'; import * as http from 'node:http'; import { createRequire } from 'node:module'; const require = createRequire(import.meta.url); import * as root from 'alibabacloud-agentcore-sdk'; import * as chain from 'alibabacloud-agentcore-sdk/integrations/langchain'; ${chainModelAssertions}`);
+    writeFileSync(join(temp, 'chain-model.cjs'), `const assert = require('node:assert/strict'); const http = require('node:http'); const root = require('alibabacloud-agentcore-sdk'); const chain = require('alibabacloud-agentcore-sdk/integrations/langchain'); ${chainModelAssertions}`);
     run(process.execPath, ['chain-model.mjs'], temp); run(process.execPath, ['chain-model.cjs'], temp);
     run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', '@langchain/anthropic@1.5.9'], temp);
-    writeFileSync(join(temp, 'chain-model.ts'), `import { AgentCore, Tool } from '@alibabacloud/agentcore-sdk';
-      import { model, tools } from '@alibabacloud/agentcore-sdk/integrations/langchain';
+    writeFileSync(join(temp, 'chain-model.ts'), `import { AgentCore, Tool } from 'alibabacloud-agentcore-sdk';
+      import { model, tools } from 'alibabacloud-agentcore-sdk/integrations/langchain';
       import { createAgent } from 'langchain';
       const client = new AgentCore().directModel({ model: 'custom', baseURL: 'http://localhost/v1' });
       const native = await model(client, { temperature: 0.2 });
@@ -316,11 +316,11 @@ test('packed ESM and CJS consumers share classes and request context across subp
         await core.close(); await assert.rejects(native.invoke('closed'));
       } finally { await core.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
     })().catch(error => { console.error(error); process.exitCode = 1; });`;
-    writeFileSync(join(temp, 'chain-provider.mjs'), `import assert from 'node:assert/strict'; import http from 'node:http'; import * as root from '@alibabacloud/agentcore-sdk'; import * as chain from '@alibabacloud/agentcore-sdk/integrations/langchain'; import { createGoogleGenerativeAI } from '@ai-sdk/google'; ${chainProviderAssertions}`);
-    writeFileSync(join(temp, 'chain-provider.cjs'), `const assert = require('node:assert/strict'); const http = require('node:http'); const root = require('@alibabacloud/agentcore-sdk'); const chain = require('@alibabacloud/agentcore-sdk/integrations/langchain'); const { createGoogleGenerativeAI } = require('@ai-sdk/google'); ${chainProviderAssertions}`);
+    writeFileSync(join(temp, 'chain-provider.mjs'), `import assert from 'node:assert/strict'; import http from 'node:http'; import * as root from 'alibabacloud-agentcore-sdk'; import * as chain from 'alibabacloud-agentcore-sdk/integrations/langchain'; import { createGoogleGenerativeAI } from '@ai-sdk/google'; ${chainProviderAssertions}`);
+    writeFileSync(join(temp, 'chain-provider.cjs'), `const assert = require('node:assert/strict'); const http = require('node:http'); const root = require('alibabacloud-agentcore-sdk'); const chain = require('alibabacloud-agentcore-sdk/integrations/langchain'); const { createGoogleGenerativeAI } = require('@ai-sdk/google'); ${chainProviderAssertions}`);
     run(process.execPath, ['chain-provider.mjs'], temp); run(process.execPath, ['chain-provider.cjs'], temp);
-    writeFileSync(join(temp, 'chain-provider.ts'), `import { AgentCore } from '@alibabacloud/agentcore-sdk';
-      import { model } from '@alibabacloud/agentcore-sdk/integrations/langchain';
+    writeFileSync(join(temp, 'chain-provider.ts'), `import { AgentCore } from 'alibabacloud-agentcore-sdk';
+      import { model } from 'alibabacloud-agentcore-sdk/integrations/langchain';
       import { createGoogleGenerativeAI } from '@ai-sdk/google';
       import { createAgent } from 'langchain';
       const client = new AgentCore().directModel({ languageModel: createGoogleGenerativeAI()('gemini-test') });

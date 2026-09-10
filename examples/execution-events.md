@@ -3,7 +3,7 @@
 使用每个框架适配模块导出的 `AgentCoreConverter`，将完整框架执行流交给 Server。每次请求新建转换器，不要只输出文本 chunk。
 
 ```typescript
-import { AgentCoreConverter } from '@alibabacloud/agentcore-sdk/integrations/langchain';
+import { AgentCoreConverter } from 'alibabacloud-agentcore-sdk/integrations/langchain';
 
 async function* invoke(request) {
   const events = agent.streamEvents(

@@ -3,10 +3,10 @@ import { openAsBlob } from 'node:fs';
 import { open } from 'node:fs/promises';
 import { basename } from 'node:path';
 import { Readable } from 'node:stream';
-import type { Logger } from '@alibabacloud/agentcore-sdk';
+import type { Logger } from 'alibabacloud-agentcore-sdk';
 import { CollaborationConfigError, CollaborationFileTooLargeError, CollaborationTaskConflictError,
   CollaborationTaskInvalidError, CollaborationTaskNotFoundError, CollaborationTaskUnauthorizedError,
-  CollaborationTaskUnavailableError } from '@alibabacloud/agentcore-sdk/collaboration';
+  CollaborationTaskUnavailableError } from 'alibabacloud-agentcore-sdk/collaboration';
 import type { TeamsSnapshot } from './teams';
 
 type Value = string | Promise<string>;

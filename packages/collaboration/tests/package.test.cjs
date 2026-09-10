@@ -64,10 +64,10 @@ test('independent addon tarballs share Core contracts across ESM/CJS and upgrade
       }
       finally { client.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
     })().catch(error => { console.error(error); process.exitCode = 1; });`;
-    writeFileSync(join(temporary, 'consumer.mjs'), `import assert from 'node:assert/strict'; import * as http from 'node:http'; import * as fs from 'node:fs/promises'; import * as root from '@alibabacloud/agentcore-sdk'; import * as api from '@alibabacloud/agentcore-sdk/server'; import * as contract from '@alibabacloud/agentcore-sdk/collaboration'; import * as addon from '@alibabacloud/agentcore-collaboration'; ${assertions}`);
-    writeFileSync(join(temporary, 'consumer.cjs'), `const assert = require('node:assert/strict'); const http = require('node:http'); const fs = require('node:fs/promises'); const root = require('@alibabacloud/agentcore-sdk'); const api = require('@alibabacloud/agentcore-sdk/server'); const contract = require('@alibabacloud/agentcore-sdk/collaboration'); const addon = require('@alibabacloud/agentcore-collaboration'); ${assertions}`);
+    writeFileSync(join(temporary, 'consumer.mjs'), `import assert from 'node:assert/strict'; import * as http from 'node:http'; import * as fs from 'node:fs/promises'; import * as root from 'alibabacloud-agentcore-sdk'; import * as api from 'alibabacloud-agentcore-sdk/server'; import * as contract from 'alibabacloud-agentcore-sdk/collaboration'; import * as addon from 'alibabacloud-agentcore-collaboration'; ${assertions}`);
+    writeFileSync(join(temporary, 'consumer.cjs'), `const assert = require('node:assert/strict'); const http = require('node:http'); const fs = require('node:fs/promises'); const root = require('alibabacloud-agentcore-sdk'); const api = require('alibabacloud-agentcore-sdk/server'); const contract = require('alibabacloud-agentcore-sdk/collaboration'); const addon = require('alibabacloud-agentcore-collaboration'); ${assertions}`);
     run(process.execPath, ['consumer.mjs']); run(process.execPath, ['consumer.cjs']);
-    const coreManifest = join(temporary, 'node_modules/@alibabacloud/agentcore-sdk/package.json');
+    const coreManifest = join(temporary, 'node_modules/alibabacloud-agentcore-sdk/package.json');
     const coreBefore = readFileSync(coreManifest, 'utf8');
     const staged = join(temporary, 'addon-next'); cpSync(join(process.cwd(), 'dist'), join(staged, 'dist'), { recursive: true });
     cpSync(join(process.cwd(), 'worker-skills'), join(staged, 'worker-skills'), { recursive: true });
@@ -75,9 +75,9 @@ test('independent addon tarballs share Core contracts across ESM/CJS and upgrade
     writeFileSync(join(staged, 'package.json'), JSON.stringify(manifest));
     const next = pack(staged); run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', join(temporary, next)]);
     assert.equal(readFileSync(coreManifest, 'utf8'), coreBefore);
-    assert.equal(JSON.parse(readFileSync(join(temporary, 'node_modules/@alibabacloud/agentcore-collaboration/package.json'))).version, '0.1.1');
+    assert.equal(JSON.parse(readFileSync(join(temporary, 'node_modules/alibabacloud-agentcore-collaboration/package.json'))).version, '0.1.1');
     run(process.execPath, ['consumer.mjs']); run(process.execPath, ['consumer.cjs']);
-    writeFileSync(join(temporary, 'consumer.ts'), `import { TeamsProvider, TaskServiceClient, currentCollaborationContext } from '@alibabacloud/agentcore-collaboration';
+    writeFileSync(join(temporary, 'consumer.ts'), `import { TeamsProvider, TaskServiceClient, currentCollaborationContext } from 'alibabacloud-agentcore-collaboration';
       const client = new TaskServiceClient({ endpointProvider: () => 'http://localhost', tokenProvider: name => name });
       const snapshot = await new TeamsProvider().snapshot(); if (snapshot) await client.getTask(snapshot, 'task');
       const room: string = currentCollaborationContext().roomId; void room; client.close();`);

@@ -2,7 +2,7 @@ import { mkdtemp, writeFile, rm, rename } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { expect, it } from 'vitest';
-import { CollaborationConfigError } from '@alibabacloud/agentcore-sdk/collaboration';
+import { CollaborationConfigError } from 'alibabacloud-agentcore-sdk/collaboration';
 import { TeamsProvider, parseTeamsConfig } from '../src/teams';
 import { teamsConfig } from './helpers';
 

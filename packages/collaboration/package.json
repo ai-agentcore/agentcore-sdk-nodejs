@@ -1,6 +1,6 @@
 {
   "name": "alibabacloud-agentcore-collaboration",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Independently versioned AgentCore Worker collaboration",
   "license": "Apache-2.0",
   "repository": {

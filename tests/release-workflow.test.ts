@@ -52,7 +52,7 @@ it('publishes only the built artifact with OIDC and matching repository metadata
   expect(publish.if).toBe("github.repository == 'ai-agentcore/agentcore-sdk-nodejs'");
   expect(publish.environment.name).toBe('npm');
   expect(publish.permissions).toEqual({ 'id-token': 'write' });
-  expect(publish.steps.at(-1).run).toBe('npm publish "release/$PACKAGE_FILENAME" --ignore-scripts --access public --registry=https://registry.npmjs.org');
+  expect(publish.steps.at(-1).run).toBe('npm publish "./release/$PACKAGE_FILENAME" --ignore-scripts --access public --registry=https://registry.npmjs.org');
   for (const { directory } of packages) {
     const metadata = JSON.parse(readFileSync(`${directory}/package.json`, 'utf8'));
     expect(metadata.repository.url).toBe('git+https://github.com/ai-agentcore/agentcore-sdk-nodejs.git');

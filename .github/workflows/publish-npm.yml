@@ -95,4 +95,4 @@ jobs:
       - name: Publish to npm
         env:
           PACKAGE_FILENAME: ${{ needs.build.outputs.filename }}
-        run: npm publish "release/$PACKAGE_FILENAME" --ignore-scripts --access public --registry=https://registry.npmjs.org
+        run: npm publish "./release/$PACKAGE_FILENAME" --ignore-scripts --access public --registry=https://registry.npmjs.org

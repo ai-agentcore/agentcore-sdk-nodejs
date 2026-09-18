@@ -183,6 +183,7 @@ npx tsx examples/server.ts
 - 模型的工具调用、Responses 和 Embedding 支持情况取决于所选模型。
 - 仅加载可信 Skill；不需要执行命令时设置 `ALLOW_EXECUTE_COMMAND=false`。
 - 使用 `AgentCore.auto({ logger: console })` 开启日志，不要记录 API Key 等敏感信息。
+- Memory 请求失败或框架自动记忆降级时，日志包含操作名、记忆空间、状态码、服务端错误码、RequestId 和脱敏、截断后的错误说明；`MemoryAPIError` 的属性和异常文本也保留这些诊断信息。不输出完整响应、请求正文或上游异常链。无法取得的字段在日志中显示为 `-`；当前 OpenAPI 依赖在 HTTP 错误时不保留响应 Header，因此仅通过 Header 返回的 RequestId 可能无法取得。
 
 更多资源配置、框架依赖与运行命令见 [示例指南](examples/README.md)。
 

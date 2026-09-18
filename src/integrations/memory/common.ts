@@ -48,5 +48,9 @@ export async function recordMemory(store: MemoryStore, messages: readonly Memory
 }
 function logFailure(operation: string, store: MemoryStore, error: MemoryAPIError | MemoryContractError, logger: Logger, started: number): void {
   logger.warn(`agentcore.memory.adapter.${operation}.failed`, { store: store.memoryStoreName, error_type: error.name,
-    upstream_request_id: error instanceof MemoryAPIError ? error.requestId : undefined, elapsed_ms: Math.round(performance.now() - started) });
+    upstream_request_id: error instanceof MemoryAPIError ? error.requestId ?? '-' : '-', elapsed_ms: Math.round(performance.now() - started),
+    api_operation: error.operation,
+    status: error instanceof MemoryAPIError ? error.httpStatusCode ?? '-' : '-',
+    service_code: error instanceof MemoryAPIError ? error.serviceCode ?? '-' : '-',
+    message: error instanceof MemoryAPIError ? error.serviceMessage ?? '-' : error.detail });
 }

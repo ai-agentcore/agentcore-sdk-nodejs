@@ -52,7 +52,7 @@ export class MemoryTransport {
     }
     const response = record(raw); const payload = record(response.body);
     const details: MemoryErrorDetails = { serviceCode: text(payload.code), httpStatusCode: integer(payload.httpStatusCode) ?? integer(response.statusCode),
-      requestId: text(payload.requestId) ?? text(record(response.headers)['x-acs-request-id']) };
+      requestId: text(payload.requestId) ?? headerRequestId(response.headers), serviceMessage: text(payload.message) };
     try {
       if ((integer(response.statusCode) ?? 0) >= 400 || payload.success === false) {
         throw add && (details.httpStatusCode ?? 0) >= 500 ? new AddMemoriesOutcomeUnknownError(operation, details) : new MemoryAPIError(operation, details);
@@ -60,28 +60,36 @@ export class MemoryTransport {
       if (payload.success !== true) throw new MemoryContractError(operation, 'body.success must be true');
       return map(payload);
     } catch (cause) {
-      const error = add && cause instanceof MemoryContractError ? new AddMemoriesOutcomeUnknownError(operation, details) : cause;
+      const error = add && cause instanceof MemoryContractError
+        ? new AddMemoriesOutcomeUnknownError(operation, { ...details, serviceMessage: details.serviceMessage ?? cause.detail }) : cause;
       if (error instanceof MemoryAPIError || error instanceof MemoryContractError) this.logFailure(error);
       throw error;
     }
   }
   private logFailure(error: MemoryAPIError | MemoryContractError): void {
     this.logger.warn('agentcore.memory.request.failed', { operation: error.operation, memory_store_name: this.store, error_type: error.name,
-      status: error instanceof MemoryAPIError ? error.httpStatusCode : undefined,
-      service_code: error instanceof MemoryAPIError ? error.serviceCode : undefined,
-      request_id: error instanceof MemoryAPIError ? error.requestId : undefined });
+      status: error instanceof MemoryAPIError ? error.httpStatusCode ?? '-' : '-',
+      service_code: error instanceof MemoryAPIError ? error.serviceCode ?? '-' : '-',
+      request_id: error instanceof MemoryAPIError ? error.requestId ?? '-' : '-',
+      message: error instanceof MemoryAPIError ? error.serviceMessage ?? '-' : error.detail });
   }
 }
 export function record(value: unknown): Record<string, unknown> { return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
-function text(value: unknown): string | undefined { return typeof value === 'string' && value ? value : undefined; }
+// The generated client stringifies missing error fields as "undefined".
+function text(value: unknown): string | undefined { return typeof value === 'string' && value && value !== 'undefined' ? value : undefined; }
 function integer(value: unknown): number | undefined { return typeof value === 'number' && Number.isInteger(value) ? value : undefined; }
+function headerRequestId(headers: unknown): string | undefined {
+  return text(Object.entries(record(headers)).find(([key]) => key.toLowerCase() === 'x-acs-request-id')?.[1]);
+}
 function errorDetails(error: unknown): MemoryErrorDetails {
   let current = record(error); const result: MemoryErrorDetails = {};
   for (let i = 0; i < 4; i++) {
     const data = record(current.data); const response = record(current.response);
     result.serviceCode ??= text(current.code) ?? text(data.code) ?? text(data.Code);
     result.httpStatusCode ??= integer(current.statusCode) ?? integer(data.statusCode) ?? integer(data.StatusCode) ?? integer(response.statusCode);
-    result.requestId ??= text(current.requestId) ?? text(data.requestId) ?? text(data.RequestId) ?? text(record(response.headers)['x-acs-request-id']);
+    result.requestId ??= text(current.requestId) ?? text(data.requestId) ?? text(data.RequestId)
+      ?? headerRequestId(data.headers) ?? headerRequestId(response.headers);
+    result.serviceMessage ??= text(data.message) ?? text(data.Message) ?? text(current.message);
     if (!current.innerException) break;
     current = record(current.innerException);
   }

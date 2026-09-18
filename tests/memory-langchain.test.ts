@@ -1,4 +1,4 @@
-import { afterEach, expect, it } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import { createAgent, tool } from 'langchain';
 import { MemorySaver } from '@langchain/langgraph';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
@@ -29,7 +29,7 @@ async function setup(status = 200) {
     let raw = ''; for await (const chunk of req) raw += chunk;
     const action = String(req.headers['x-acs-action']); requests.push({ action, body: JSON.parse(new URLSearchParams(raw).get('body')!) });
     res.setHeader('content-type', 'application/json'); res.statusCode = status;
-    res.end(status !== 200 ? '{"Code":"Forbidden","RequestId":"memory-test-id"}' : JSON.stringify(action === 'SearchMemories'
+    res.end(status !== 200 ? '{"Code":"Forbidden","RequestId":"memory-test-id","Message":"Access denied; token=PRIVATE_TOKEN"}' : JSON.stringify(action === 'SearchMemories'
       ? { success: true, data: { memories: [{ memory: { memoryId: 'm', content: { text: 'User likes coffee' }, scope: {} }, score: 1, similarity: 1 }] } }
       : { success: true, data: { memoryIds: ['written'] } }));
   }); servers.push(endpoint);
@@ -107,9 +107,17 @@ it.each(['length', 'max_tokens'])('does not record a truncated answer (%s)', asy
 
 it('tolerates Memory service failures but not an invalid application scope', async () => {
   const { core, requests } = await setup(403); const model = new ScriptedModel();
-  const agent = createAgent({ model, middleware: [agentCoreMemoryMiddleware(core.memoryStore('mem'), { scopeResolver: () => scopes, writeBack: true })] });
+  const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+  const agent = createAgent({ model, middleware: [agentCoreMemoryMiddleware(core.memoryStore('mem'), { scopeResolver: () => scopes, writeBack: true, logger })] });
   const result = await agent.invoke({ messages: [new HumanMessage('Question')] });
   expect(result.messages.at(-1)!.content).toBe('Try coffee.'); expect(requests).toHaveLength(2);
+  for (const [operation, apiOperation] of [['search', 'SearchMemories'], ['write', 'AddMemories']]) {
+    expect(logger.warn).toHaveBeenCalledWith(`agentcore.memory.adapter.${operation}.failed`, expect.objectContaining({
+      upstream_request_id: 'memory-test-id', api_operation: apiOperation, status: 403,
+      service_code: 'Forbidden', message: expect.stringContaining('Access denied'),
+    }));
+  }
+  expect(JSON.stringify(logger.warn.mock.calls)).not.toContain('PRIVATE_TOKEN');
   const invalid = createAgent({ model, middleware: [agentCoreMemoryMiddleware(core.memoryStore('mem'), { scopeResolver: () => ({ read: scopes.read }), writeBack: true })] });
   await expect(invalid.invoke({ messages: [new HumanMessage('Question')] })).rejects.toThrow('scope requires');
   expect(requests).toHaveLength(2); expect(model.inputs).toHaveLength(1);

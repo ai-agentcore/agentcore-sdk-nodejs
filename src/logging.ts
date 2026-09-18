@@ -10,3 +10,14 @@ export interface Logger {
 export const nullLogger: Logger = {
   debug() {}, info() {}, warn() {}, error() {},
 };
+
+/** Render only a service message field, never a response or exception dump. */
+export function safeErrorMessage(value: unknown): string | undefined {
+  if (typeof value !== 'string' || !value.trim()) return undefined;
+  return value.replace(/[\x00-\x1f\x7f]+/g, ' ')
+    .replace(/\b(?:authorization|api[ _-]?key(?:\s+provided)?|access[_-]?key(?:[_-]?(?:id|secret))?|(?:security|access|refresh|jwt)[_-]?token|token|password|secret|text|content|query|messages|metadata|headers)["']?\s*[:=].*/i, '<redacted>')
+    .replace(/\b(?:Bearer|Basic)\s+[^\s,;]+/gi, '<redacted>')
+    .replace(/\b(?:LTAI[A-Za-z0-9]+|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)\b/g, '<redacted>')
+    .replace(/https?:\/\/\S+/g, '<url>')
+    .slice(0, 512);
+}

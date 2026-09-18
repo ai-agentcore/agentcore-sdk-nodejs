@@ -63,6 +63,7 @@ export class RuntimeEnvironmentProvider {
   async read(): Promise<Record<string, string>> {
     let text: string;
     try { text = await readFile(this.path, 'utf8'); } catch (cause) {
+      if ((cause as NodeJS.ErrnoException).code === 'ENOENT') return {};
       throw new ConfigError('cannot read AgentCore runtime env', { cause });
     }
     return parseRuntimeEnvironment(text);

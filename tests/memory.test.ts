@@ -123,7 +123,7 @@ it.each(invalidCalls)('validates before loading runtime: %s', async (_label, cal
 
 it.each([400, 500, 503])('classifies AddMemories HTTP %s without replaying writes', async (status) => {
   let calls = 0;
-  const { store } = await setup((_req, res) => { calls++; res.statusCode = status; res.end(JSON.stringify({ code: 'MemoryFailure', message: 'private memory text', requestId: 'req-failed' })); });
+  const { store } = await setup((_req, res) => { calls++; res.statusCode = status; res.end(JSON.stringify({ code: 'MemoryFailure', message: 'Memory request failed; content=private memory text', requestId: 'req-failed' })); });
   const error = await store.addMemories({ scope, text: 'sensitive' }).catch((e: unknown) => e);
   expect(error).toBeInstanceOf(status >= 500 ? AddMemoriesOutcomeUnknownError : MemoryAPIError);
   expect(error).toMatchObject({ operation: 'AddMemories', httpStatusCode: status, requestId: 'req-failed' });
@@ -154,7 +154,7 @@ it('encodes path components and logs error identifiers without content or creden
   const entries: unknown[] = []; const log = (...values: unknown[]) => entries.push(values); const logger: Logger = { debug: log, info: log, warn: log, error: log };
   const { core } = await setup((req, res) => {
     expect(req.url).toBe('/workspaces/ws-test/memorystores/store%2Fname/memories/id%2Fpart');
-    res.statusCode = 403; res.end('{"code":"Denied","requestId":"trace-123","message":"sensitive-content test-sk"}');
+    res.statusCode = 403; res.end('{"code":"Denied","requestId":"trace-123","message":"Access denied; content=sensitive-content test-sk"}');
   }, logger);
   await expect(core.memoryStore('store/name').getMemory('id/part')).rejects.toMatchObject({ requestId: 'trace-123' });
   const output = JSON.stringify(entries); expect(output).toContain('trace-123'); expect(output).toContain('GetMemory');

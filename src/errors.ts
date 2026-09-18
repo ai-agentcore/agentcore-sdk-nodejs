@@ -1,3 +1,5 @@
+import { safeErrorMessage } from './logging';
+
 export class AgentCoreError extends Error {
   readonly code: string = 'AGENTCORE_ERROR';
   constructor(message: string, options?: ErrorOptions) {
@@ -19,16 +21,23 @@ export class InvocationError extends AgentCoreError { override readonly code = '
 export class UnsupportedFeatureError extends AgentCoreError { override readonly code = 'UNSUPPORTED_FEATURE'; }
 
 export class MemoryValidationError extends AgentCoreError { override readonly code = 'MEMORY_VALIDATION_FAILED'; }
-export interface MemoryErrorDetails { serviceCode?: string; httpStatusCode?: number; requestId?: string; }
+export interface MemoryErrorDetails { serviceCode?: string; httpStatusCode?: number; requestId?: string; serviceMessage?: string; }
 export class MemoryAPIError extends AgentCoreError {
   override readonly code: string = 'MEMORY_API_FAILED';
   readonly serviceCode?: string;
   readonly httpStatusCode?: number;
   readonly requestId?: string;
+  readonly serviceMessage?: string;
   constructor(readonly operation: string, details: MemoryErrorDetails = {}) {
-    super(`AgentCore Memory operation ${operation} failed`);
+    super('');
     this.serviceCode = details.serviceCode; this.httpStatusCode = details.httpStatusCode; this.requestId = details.requestId;
+    this.serviceMessage = safeErrorMessage(details.serviceMessage);
+    const diagnostics = Object.entries({ status: this.httpStatusCode, service_code: this.serviceCode,
+      request_id: this.requestId, message: this.serviceMessage })
+      .filter(([, value]) => value !== undefined).map(([key, value]) => `${key}=${value}`).join(', ');
+    this.message = this.summary(operation) + (diagnostics ? `: ${diagnostics}` : '');
   }
+  protected summary(operation: string): string { return `AgentCore Memory operation ${operation} failed`; }
 }
 export class MemoryContractError extends AgentCoreError {
   override readonly code = 'MEMORY_RESPONSE_INVALID';
@@ -36,7 +45,5 @@ export class MemoryContractError extends AgentCoreError {
 }
 export class AddMemoriesOutcomeUnknownError extends MemoryAPIError {
   override readonly code = 'ADD_MEMORIES_OUTCOME_UNKNOWN';
-  constructor(operation: string, details: MemoryErrorDetails = {}) {
-    super(operation, details); this.message = 'AgentCore Memory AddMemories outcome is unknown; the write may have succeeded';
-  }
+  protected override summary(): string { return 'AgentCore Memory AddMemories outcome is unknown; the write may have succeeded'; }
 }

@@ -38,8 +38,8 @@ export async function recordMemory(store: MemoryStore, messages: readonly Memory
   const logger = options.logger ?? nullLogger; const started = performance.now();
   logger.info('agentcore.memory.adapter.write.started', { store: store.memoryStoreName, messages: messages.length });
   try {
-    const result = await store.addMemories({ scope, messages });
-    logger.info('agentcore.memory.adapter.write.succeeded', { store: store.memoryStoreName, count: result.memoryIds.length, elapsed_ms: Math.round(performance.now() - started) });
+    const result = await store.addMemories({ scope, messages, sync: false });
+    logger.info('agentcore.memory.adapter.write.submitted', { store: store.memoryStoreName, task_id: result.taskId, elapsed_ms: Math.round(performance.now() - started) });
   } catch (error) {
     if (!(error instanceof MemoryAPIError || error instanceof MemoryContractError)) throw error;
     logFailure('write', store, error, logger, started);

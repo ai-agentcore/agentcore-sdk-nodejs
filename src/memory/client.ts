@@ -1,7 +1,7 @@
 import { MemoryContractError, MemoryValidationError } from '../errors';
 import type { Logger } from '../logging';
 import { MemoryTransport, pathComponent, record, type MemoryRuntime, type MemoryOperation } from './transport';
-import type { AddMemoriesOptions, AddMemoriesResult, ListMemoriesOptions, ListMemorySessionsOptions, ListMemorySessionMessagesOptions, Memory, MemoryMessage, MemoryScope, MemorySession,
+import type { AddMemoriesOptions, AddMemoriesResult, AddMemoriesSubmission, MemoryTask, MemoryTaskStatus, ListMemoriesOptions, ListMemorySessionsOptions, ListMemorySessionMessagesOptions, Memory, MemoryMessage, MemoryScope, MemorySession,
   Page, PageOptions, SearchMemoriesOptions, SearchMemoriesResult, UpdateMemoryOptions } from './models';
 
 /** A local binding to an existing MemoryStore. No lookup or creation at construction. */
@@ -12,7 +12,12 @@ export class MemoryStore {
     this.memoryStoreName = required(name, 'memoryStoreName');
     this.transport = new MemoryTransport(name, options.runtime, options.logger);
   }
-  async addMemories(options: AddMemoriesOptions): Promise<AddMemoriesResult> {
+  addMemories(options: AddMemoriesOptions & { sync: true }): Promise<AddMemoriesResult>;
+  addMemories(options: AddMemoriesOptions & { sync?: false }): Promise<AddMemoriesSubmission>;
+  addMemories(options: AddMemoriesOptions): Promise<AddMemoriesResult | AddMemoriesSubmission>;
+  async addMemories(options: AddMemoriesOptions): Promise<AddMemoriesResult | AddMemoriesSubmission> {
+    if (options.sync !== undefined && typeof options.sync !== 'boolean') throw new MemoryValidationError('sync must be a boolean');
+    const sync = options.sync ?? false;
     const scope = validateScope(options.scope);
     const hasText = options.text !== undefined; const hasMessages = options.messages !== undefined;
     if (hasText === hasMessages) throw new MemoryValidationError('exactly one of text or messages must be provided');
@@ -23,8 +28,32 @@ export class MemoryStore {
       messages = options.messages.map((message) => ({ role: required(message?.role, 'messages[].role'), content: required(message?.content, 'messages[].content') }));
     }
     const metadata = validateMetadata(options.metadata);
-    return this.transport.request('AddMemories', 'POST', '/memories', (body) => Object.freeze({ memoryIds: Object.freeze(array(record(body.data).memories, 'AddMemories', 'data.memories').map((item) =>
-      string(record(item).memoryId, 'AddMemories', 'data.memories[].memoryId', true))) }), { scope, text, messages, metadata });
+    return this.transport.request<AddMemoriesResult | AddMemoriesSubmission>('AddMemories', 'POST', '/memories', (body) => {
+      if (!sync) return Object.freeze({ taskId: string(record(body.data).taskId, 'AddMemories', 'data.taskId', true) });
+      return Object.freeze({ memoryIds: memoryIds(record(body.data).memories, 'AddMemories') });
+    }, { scope, text, messages, metadata, sync });
+  }
+  async getMemoryTask(taskId: string): Promise<MemoryTask> {
+    required(taskId, 'taskId');
+    return this.transport.request('GetMemoryTask', 'GET', `/memory-tasks/${pathComponent(taskId)}`, body => {
+      const data = record(body.data);
+      const id = string(data.taskId, 'GetMemoryTask', 'data.taskId', true);
+      const status = string(data.status, 'GetMemoryTask', 'data.status', true);
+      if (!['PENDING', 'RUNNING', 'SUCCEEDED', 'FAILED', 'UNKNOWN'].includes(status)) throw new MemoryContractError('GetMemoryTask', 'data.status is not a public task status');
+      let ids: readonly string[] = Object.freeze([]);
+      let error: MemoryTask['error'];
+      if (status === 'SUCCEEDED') {
+        if (data.error != null) throw new MemoryContractError('GetMemoryTask', 'successful task contains error');
+        ids = memoryIds(data.memories, 'GetMemoryTask');
+      } else if (status === 'FAILED' || status === 'UNKNOWN') {
+        if (data.memories != null) throw new MemoryContractError('GetMemoryTask', 'failed task contains memories');
+        error = Object.freeze({ code: string(record(data.error).code, 'GetMemoryTask', 'data.error.code', true),
+          message: string(record(data.error).message, 'GetMemoryTask', 'data.error.message', true) });
+      } else if (data.memories != null || data.error != null) {
+        throw new MemoryContractError('GetMemoryTask', 'non-terminal task contains result fields');
+      }
+      return Object.freeze({ taskId: id, status: status as MemoryTaskStatus, memoryIds: ids, ...(error ? { error } : {}) });
+    });
   }
   async searchMemories(query: string, options: SearchMemoriesOptions = {}): Promise<SearchMemoriesResult> {
     required(query, 'query'); const scope = validateScope(options.scope);
@@ -80,6 +109,11 @@ export class MemoryStore {
         content: string(record(item).content, 'ListMemorySessionMessages', 'items[].content', true),
       })), undefined, { userId: options.userId, agentId: options.agentId, sessionId, maxResults: options.maxResults, nextToken: options.nextToken });
   }
+}
+
+function memoryIds(value: unknown, operation: MemoryOperation): readonly string[] {
+  if (!Array.isArray(value)) throw new MemoryContractError(operation, 'data.memories must be an array');
+  return Object.freeze(value.map(item => string(record(item).memoryId, operation, 'data.memories[].memoryId', true)));
 }
 
 function required(value: unknown, field: string): string {

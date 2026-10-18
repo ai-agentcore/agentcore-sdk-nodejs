@@ -17,7 +17,7 @@ export interface MemoryRuntime {
   accessKeyCredential?: AccessKeyCredential;
   resourceSTS?: CredentialProvider;
 }
-export type MemoryOperation = 'AddMemories' | 'SearchMemories' | 'ListMemories' | 'GetMemory' | 'UpdateMemory' | 'DeleteMemory' | 'ListMemorySessions' | 'ListMemorySessionMessages';
+export type MemoryOperation = 'AddMemories' | 'GetMemoryTask' | 'SearchMemories' | 'ListMemories' | 'GetMemory' | 'UpdateMemory' | 'DeleteMemory' | 'ListMemorySessions' | 'ListMemorySessionMessages';
 export const pathComponent = (value: string): string => DaraURL.percentEncode(value);
 
 /** Memory methods absent from the public generated package, using its existing POP transport. */
@@ -58,7 +58,11 @@ export class MemoryTransport {
         throw add && (details.httpStatusCode ?? 0) >= 500 ? new AddMemoriesOutcomeUnknownError(operation, details) : new MemoryAPIError(operation, details);
       }
       if (payload.success !== true) throw new MemoryContractError(operation, 'body.success must be true');
-      return map(payload);
+      const result = map(payload);
+      if (add && body?.sync === false) this.logger.info('agentcore.memory.request.submitted', {
+        operation, memory_store_name: this.store, task_id: text(record(result).taskId), request_id: details.requestId ?? '-',
+      });
+      return result;
     } catch (cause) {
       const error = add && cause instanceof MemoryContractError
         ? new AddMemoriesOutcomeUnknownError(operation, { ...details, serviceMessage: details.serviceMessage ?? cause.detail }) : cause;

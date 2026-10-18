@@ -62,7 +62,7 @@ export class AgentCoreMemoryService implements BaseMemoryService {
       const content = (event.content.parts ?? []).filter(part => part.text && !part.thought).map(part => part.text!).join('\n');
       if (content.trim()) messages.push({ role, content });
     }
-    if (messages.length) await this.store.addMemories({ scope, messages, metadata: request.customMetadata });
+    if (messages.length) await this.store.addMemories({ scope, messages, metadata: request.customMetadata, sync: false });
   }
 }
 export { GoogleADKEventConverter as AgentCoreConverter } from './event-converters';

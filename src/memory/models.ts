@@ -11,10 +11,20 @@ export interface Memory {
 }
 export interface MemorySearchHit { readonly memory: Memory; readonly score: number; readonly similarity: number; }
 export interface AddMemoriesResult { readonly memoryIds: readonly string[]; }
+export interface AddMemoriesSubmission { readonly taskId: string; }
+export type MemoryTaskStatus = 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'UNKNOWN';
+export interface MemoryTask {
+  readonly taskId: string;
+  readonly status: MemoryTaskStatus;
+  readonly memoryIds: readonly string[];
+  readonly error?: Readonly<{ code: string; message: string }>;
+}
 export interface SearchMemoriesResult { readonly memories: readonly MemorySearchHit[]; }
 export interface MemorySession { readonly agentId?: string; readonly sessionId?: string; readonly userId?: string; }
 export interface Page<T> { readonly items: readonly T[]; readonly maxResults?: number; readonly nextToken?: string; readonly totalCount?: number; }
 export type AddMemoriesOptions = {
+  /** Defaults to false: return a task ID after acceptance, without waiting for extraction. */
+  sync?: boolean;
   scope?: MemoryScope;
   metadata?: Readonly<Record<string, string>>;
 } & ({ text: string; messages?: never } | { text?: never; messages: readonly MemoryMessage[] });

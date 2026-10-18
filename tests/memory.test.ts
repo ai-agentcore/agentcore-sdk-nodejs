@@ -42,7 +42,7 @@ it('uses the eight Python Memory wire contracts with signed requests and typed r
     }
   });
   expect(core.config).toBeUndefined(); expect(requests).toHaveLength(0);
-  expect(await store.addMemories({ scope, text: 'likes coffee', metadata: { source: 'chat' } })).toEqual({ memoryIds: ['memory-1'] });
+  expect(await store.addMemories({ scope, text: 'likes coffee', metadata: { source: 'chat' }, sync: true })).toEqual({ memoryIds: ['memory-1'] });
   const search = await store.searchMemories('coffee', { scope: { agentId: scope.agentId }, topK: 3, metadata: { source: 'chat' }, enableRerank: false, minSimilarity: 0, minScore: 0.1 });
   expect(search.memories[0]).toEqual({ memory, score: 0.9, similarity: 0.8 }); expect(Object.isFrozen(search.memories[0]!.memory.metadata)).toBe(true);
   expect(await store.listMemories({ agentId: scope.agentId, sessionId: scope.sessionId, maxResults: 10, nextToken: 'cursor' })).toMatchObject({ items: [memory], nextToken: 'next', maxResults: 10, totalCount: 11 });
@@ -56,7 +56,7 @@ it('uses the eight Python Memory wire contracts with signed requests and typed r
     `POST ${base}/memories`, `POST ${base}/memories/search`, `GET ${base}/memories`, `GET ${base}/memories/memory-1`,
     `PUT ${base}/memories/memory-1`, `DELETE ${base}/memories/memory-1`, `GET ${base}/sessions`, `GET ${base}/messages`,
   ]);
-  expect(requests[0]!.body).toEqual({ scope, text: 'likes coffee', metadata: { source: 'chat' } });
+  expect(requests[0]!.body).toEqual({ scope, text: 'likes coffee', metadata: { source: 'chat' }, sync: true });
   expect(requests[1]!.body).toEqual({ query: 'coffee', scope: { agentId: scope.agentId }, topK: 3, metadata: { source: 'chat' }, enableRerank: false, minSimilarity: 0, minScore: 0.1 });
   expect(requests[2]!.query).toEqual({ agentId: scope.agentId, sessionId: scope.sessionId, maxResults: '10', nextToken: 'cursor' });
   expect(requests[4]!.body).toEqual({ metadata: {} }); expect(core.config).toBeUndefined();
@@ -68,11 +68,11 @@ it('supports messages input, optional empty search results and empty pages', asy
   const { store } = await setup(async (req, res) => {
     if (req.headers['x-acs-action'] === 'AddMemories') {
       let raw = ''; for await (const chunk of req) raw += chunk;
-      expect(JSON.parse(new URLSearchParams(raw).get('body')!)).toEqual({ scope, messages: [{ role: 'user', content: 'hello' }] });
+      expect(JSON.parse(new URLSearchParams(raw).get('body')!)).toEqual({ scope, messages: [{ role: 'user', content: 'hello' }], sync: true });
     }
-    res.end('{"success":true,"nextToken":""}');
+    res.end('{"success":true,"nextToken":"","data":{"memories":[]}}');
   });
-  expect(await store.addMemories({ scope, messages: [{ role: 'user', content: 'hello' }] })).toEqual({ memoryIds: [] });
+  expect(await store.addMemories({ scope, messages: [{ role: 'user', content: 'hello' }], sync: true })).toEqual({ memoryIds: [] });
   expect(await store.searchMemories('hello')).toEqual({ memories: [] });
   expect(await store.listMemories()).toMatchObject({ items: [], nextToken: undefined });
 });
@@ -167,13 +167,13 @@ it('waits for an AddMemories response beyond the HTTP transport default timeout 
     calls++;
     setTimeout(() => res.end('{"success":true,"data":{"memories":[{"memoryId":"memory-1"}]}}'), 4500);
   });
-  expect(await store.addMemories({ scope, text: 'fact' })).toEqual({ memoryIds: ['memory-1'] });
+  expect(await store.addMemories({ scope, text: 'fact', sync: true })).toEqual({ memoryIds: ['memory-1'] });
   expect(calls).toBe(1);
 }, 10000);
 
 it('sets a 120 second write timeout and explicitly disables generated SDK retries', async () => {
   const call = vi.spyOn(GeneratedSDK.prototype, 'callApi');
-  const { store } = await setup((_req, res) => res.end('{"success":true}'));
+  const { store } = await setup((_req, res) => res.end('{"success":true,"data":{"taskId":"task-1"}}'));
   await store.addMemories({ scope, text: 'fact' });
   const options = call.mock.calls[0]![2]; expect(options).toMatchObject({ autoretry: false, maxAttempts: 1, connectTimeout: 120000, readTimeout: 120000 });
 });
@@ -187,8 +187,8 @@ it('normalizes null pagination fields and allows empty memory content', async ()
 it('takes a snapshot of scope, metadata and messages before awaiting credentials', async () => {
   const { store } = await setup(async (req, res) => {
     let raw = ''; for await (const chunk of req) raw += chunk;
-    expect(JSON.parse(new URLSearchParams(raw).get('body')!)).toEqual({ scope, metadata: { source: 'original' }, messages: [{ role: 'user', content: 'original' }] });
-    res.end('{"success":true}');
+    expect(JSON.parse(new URLSearchParams(raw).get('body')!)).toEqual({ scope, metadata: { source: 'original' }, messages: [{ role: 'user', content: 'original' }], sync: false });
+    res.end('{"success":true,"data":{"taskId":"task-1"}}');
   });
   const writeScope = { ...scope }; const metadata = { source: 'original' }; const messages = [{ role: 'user', content: 'original' }];
   const call = store.addMemories({ scope: writeScope, metadata, messages });
@@ -217,11 +217,11 @@ it.each([undefined, {}, { userId: 'u' }, { agentId: 'a' }, { sessionId: 's' }, {
     const { store } = await setup(async (req, res) => {
       let raw = ''; for await (const chunk of req) raw += chunk;
       bodies.push(JSON.parse(new URLSearchParams(raw).get('body')!));
-      res.end('{"success":true}');
+      res.end('{"success":true,"data":{"taskId":"task-1"}}');
     });
     await store.addMemories({ scope, text: 'fact' });
     await store.searchMemories('query', { scope });
-    expect(bodies).toEqual([JSON.parse(JSON.stringify({ scope, text: 'fact' })), JSON.parse(JSON.stringify({ query: 'query', scope }))]);
+    expect(bodies).toEqual([JSON.parse(JSON.stringify({ scope, text: 'fact', sync: false })), JSON.parse(JSON.stringify({ query: 'query', scope }))]);
   });
 
 it.each([{ userId: 'u' }, { agentId: 'a' }, { sessionId: 's' }])('lists independent scopes and preserves omitted response fields: %j', async (scope) => {

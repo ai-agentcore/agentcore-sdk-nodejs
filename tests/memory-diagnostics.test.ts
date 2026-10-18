@@ -108,11 +108,25 @@ it.each(['data', 'response'])('reads mixed-case RequestId from wrapped error %s.
   expect(JSON.stringify(logger.warn.mock.calls)).not.toContain('PRIVATE_TOKEN');
 });
 
+it('logs task acceptance without treating extraction as complete or logging input', async () => {
+  const server = await httpServer((_req, res) => res.end('{"success":true,"requestId":"req-submit","data":{"taskId":"task-1"}}'));
+  servers.push(server);
+  const { store, logger } = client(server.url);
+  await recordMemory(store, [{ role: 'user', content: 'PRIVATE_CONTENT' }], { userId: 'user' }, { logger });
+  expect(logger.info).toHaveBeenCalledWith('agentcore.memory.request.submitted', expect.objectContaining({
+    task_id: 'task-1', request_id: 'req-submit',
+  }));
+  expect(logger.info).toHaveBeenCalledWith('agentcore.memory.adapter.write.submitted', expect.objectContaining({ task_id: 'task-1' }));
+  expect(logger.warn).not.toHaveBeenCalled();
+  expect(JSON.stringify(logger.info.mock.calls)).not.toContain('PRIVATE_CONTENT');
+  expect(JSON.stringify(logger.info.mock.calls)).not.toContain('write.succeeded');
+});
+
 it('keeps the invalid-response reason when a write outcome is unknown', async () => {
   const server = await httpServer((_req, res) => res.end('{"success":true,"requestId":"req-invalid","data":{"memories":[{}]}}'));
   servers.push(server);
   const { store, logger } = client(server.url);
-  const error = await store.addMemories({ text: 'PRIVATE_CONTENT' }).catch(error => error);
+  const error = await store.addMemories({ text: 'PRIVATE_CONTENT', sync: true }).catch(error => error);
   expect(error).toBeInstanceOf(AddMemoriesOutcomeUnknownError);
   expect(error.serviceMessage).toContain('memoryId');
   expect(error.message).toContain('req-invalid');

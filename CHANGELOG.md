@@ -1,6 +1,6 @@
 # Release notes
 
-## Unreleased
+## 0.1.4 — 2026-10-18
 
 - Memory 写入默认改为异步提取，`addMemories()` 返回 `{ taskId }`。原先依赖返回值 `memoryIds` 的调用需显式传入 `sync: true`。
 - 新增 `getMemoryTask(taskId)`，用于查询提取进度、记忆 ID 和任务错误。

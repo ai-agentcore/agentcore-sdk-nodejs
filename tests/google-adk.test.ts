@@ -24,7 +24,7 @@ async function fixture(protocol: string, status = 200) {
         res.setHeader('content-type', 'application/json'); res.statusCode = status;
         res.end(status !== 200 ? '{"Code":"Forbidden","RequestId":"adk-memory-test"}' : JSON.stringify(action === 'SearchMemories'
           ? { success: true, data: { memories: [{ memory: { memoryId: 'm1', content: { text: 'User likes coffee' }, scope: {}, createdAt: '2026-09-07T00:00:00Z' }, score: 1, similarity: 1 }] } }
-          : { success: true, data: { memoryIds: ['written'] } })); return;
+          : { success: true, data: { taskId: 'task-1' } })); return;
       }
       const body = JSON.parse(raw); requests.push({ path: req.url!, auth: req.headers.authorization, key: req.headers['x-api-key'] as string, body });
       const first = requests.length === 1 && Boolean(body.tools?.length);
@@ -96,7 +96,7 @@ it.each(['OpenAI/v1', 'Anthropic'].flatMap(protocol => [false, true].map(stream 
     expect(JSON.stringify(session.events)).not.toContain('User likes coffee');
     await memory.addSessionToMemory(session);
     expect(memories.filter(entry => entry.action === 'AddMemories').map(entry => entry.body)).toEqual([
-      { scope: { agentId: 'app:user', sessionId: 'session' }, messages: [{ role: 'user', content: 'Drink?' }, { role: 'assistant', content: 'Try coffee in 杭州.' }] },
+      { sync: false, scope: { agentId: 'app:user', sessionId: 'session' }, messages: [{ role: 'user', content: 'Drink?' }, { role: 'assistant', content: 'Try coffee in 杭州.' }] },
     ]);
     expect(partitions.every(pair => pair[0] === 'app' && pair[1] === 'user')).toBe(true);
   },
@@ -116,12 +116,12 @@ it('maps native Memory searches and explicit event deltas without tools, thought
     createEvent({ author: 'agent', content: { role: 'model', parts: [{ text: 'secret thought', thought: true }, { text: 'Final' }] } }),
   ];
   await memory.addEventsToMemory({ appName: 'app', userId: 'user', sessionId: 'delta', events, customMetadata: { source: 'test' } });
-  expect(memories.at(-1)!.body).toEqual({ scope: { agentId: 'app:user', sessionId: 'delta' },
+  expect(memories.at(-1)!.body).toEqual({ sync: false, scope: { agentId: 'app:user', sessionId: 'delta' },
     messages: [{ role: 'user', content: 'Hello' }, { role: 'assistant', content: 'Final' }], metadata: { source: 'test' } });
   await memory.addEventsToMemory({ appName: 'app', userId: 'user', sessionId: 'delta', events: events.slice(1, 5) });
   expect(memories).toHaveLength(2);
   await memory.addEventsToMemory({ appName: 'app', userId: 'user', events });
-  expect(memories.at(-1)!.body).toEqual({ scope: { agentId: 'app:user' },
+  expect(memories.at(-1)!.body).toEqual({ sync: false, scope: { agentId: 'app:user' },
     messages: [{ role: 'user', content: 'Hello' }, { role: 'assistant', content: 'Final' }] });
 });
 

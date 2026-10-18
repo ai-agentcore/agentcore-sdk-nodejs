@@ -2,7 +2,9 @@ import { BaseChatModel, type BaseChatModelCallOptions, type BindToolsInput } fro
 import { AIMessage, AIMessageChunk, type BaseMessage, type UsageMetadata } from '@langchain/core/messages';
 import { ChatGenerationChunk, type ChatResult } from '@langchain/core/outputs';
 import type { CallbackManagerForLLMRun } from '@langchain/core/callbacks/manager';
+import type { BaseLanguageModelInput } from '@langchain/core/language_models/base';
 import { convertToOpenAITool } from '@langchain/core/utils/function_calling';
+import { IterableReadableStream } from '@langchain/core/utils/stream';
 import type { LanguageModelV3CallOptions, LanguageModelV3Content, LanguageModelV3Message, LanguageModelV3Prompt,
   LanguageModelV3ToolChoice, LanguageModelV3Usage, LanguageModelV3FunctionTool, SharedV3ProviderOptions } from '@ai-sdk/provider';
 import type { ProviderModelClient } from '../model/provider';
@@ -18,6 +20,26 @@ export class ProviderChatModel extends BaseChatModel<ProviderChatCallOptions> {
   _llmType(): string { return 'agentcore-provider'; }
   get callKeys(): string[] { return [...super.callKeys, 'tools', 'tool_choice', 'maxOutputTokens', 'temperature', 'topP', 'topK', 'presencePenalty', 'frequencyPenalty', 'seed', 'responseFormat', 'providerOptions', 'headers']; }
   bindTools(tools: BindToolsInput[], kwargs?: Partial<ProviderChatCallOptions>) { return this.withConfig({ ...kwargs, tools }); }
+
+  async stream(input: BaseLanguageModelInput, options?: Partial<ProviderChatCallOptions>): Promise<IterableReadableStream<AIMessageChunk>> {
+    const controller = new AbortController();
+    const signal = AbortSignal.any([controller.signal, ...(options?.signal ? [options.signal] : [])]);
+    const stream = await super.stream(input, { ...options, signal });
+    const reader = stream.getReader();
+    return new IterableReadableStream<AIMessageChunk>({
+      async pull(output) {
+        const next = await reader.read();
+        if (next.done) { reader.releaseLock(); output.close(); }
+        else output.enqueue(next.value);
+      },
+      async cancel(reason) {
+        // Abort before waiting for LangChain's generator, which may be prefetching.
+        controller.abort(reason);
+        try { await reader.cancel(reason); }
+        finally { reader.releaseLock(); }
+      },
+    });
+  }
 
   async _generate(messages: BaseMessage[], options: this['ParsedCallOptions']): Promise<ChatResult> {
     const result = await this.client.languageModel.doGenerate(this.request(messages, options));

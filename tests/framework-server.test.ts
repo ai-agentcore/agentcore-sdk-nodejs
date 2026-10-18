@@ -57,7 +57,7 @@ it.each(['langchain', 'google-adk', 'mastra'].flatMap(framework => ['agui', 'ope
         res.setHeader('content-type', 'application/json');
         res.end(JSON.stringify(action === 'SearchMemories' ? { success: true, data: { memories: [{ memory: { memoryId: 'm',
           content: { text: 'User prefers concise answers' }, scope: {} }, score: 1, similarity: 1 }] } }
-          : { success: true, data: { memoryIds: ['saved'] } })); return;
+          : { success: true, data: { taskId: 'task-1' } })); return;
       }
       auth.push({ path: req.url!, value: req.headers.authorization });
       const body = JSON.parse(raw); modelRequests.push(body);
@@ -161,4 +161,5 @@ it.each(['langchain', 'google-adk', 'mastra'].flatMap(framework => ['agui', 'ope
   expect(JSON.stringify(modelRequests[2]!.messages)).toContain('Use the MCP timezone result.');
   expect(memoryRequests.map(r => r.action)).toEqual([...(framework === 'google-adk' ? ['SearchMemories', 'SearchMemories', 'SearchMemories'] : ['SearchMemories']), 'AddMemories']);
   expect(memoryRequests.at(-1)!.body.messages).toEqual([{ role: 'user', content: '杭州时区？' }, { role: 'assistant', content: '杭州位于 Asia/Shanghai。' }]);
+  expect(memoryRequests.at(-1)!.body.sync).toBe(false);
 });

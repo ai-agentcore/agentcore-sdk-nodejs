@@ -155,7 +155,7 @@ test('packed ESM and CJS consumers share classes and request context across subp
         if (req.headers['x-acs-action']) {
           const action = req.headers['x-acs-action']; actions.push(action);
           res.end(JSON.stringify(action === 'SearchMemories' ? { success: true, data: { memories: [{ memory: { memoryId: 'm', content: { text: 'Likes coffee' }, scope: {} }, score: 1, similarity: 1 }] } }
-            : { success: true, data: { memoryIds: ['saved'] } })); return;
+            : { success: true, data: { taskId: 'task-1' } })); return;
         }
         assert.equal(req.headers.authorization, 'Bearer local-key');
         const body = JSON.parse(raw); assert.match(JSON.stringify(body.messages), /Likes coffee/);

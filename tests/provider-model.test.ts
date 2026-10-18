@@ -160,9 +160,16 @@ it('sends LangChain inline images as native Google media parts', async () => {
   expect(env.requests[0]!.body.contents[0].parts).toContainEqual({ inlineData: { mimeType: 'image/png', data: 'AQID' } });
 });
 
-it('cancels a LangChain provider stream on consumer exit and obeys Core close', async () => {
+it.each(['break', 'cancel'])('cancels a LangChain provider stream on %s and obeys Core close', async mode => {
   const env = await fixture({ stall: true }); const native = await chainModel(env.client);
-  for await (const chunk of await native.stream('hello')) if (chunk.text) break;
+  const stream = await native.stream('hello');
+  if (mode === 'break') {
+    for await (const chunk of stream) if (chunk.text) break;
+  } else {
+    const reader = stream.getReader();
+    expect((await reader.read()).value?.text).toBe('Google result');
+    await reader.cancel(); reader.releaseLock();
+  }
   await env.closed; await env.core.close();
   await expect(native.invoke('closed')).rejects.toThrow(); expect(env.requests).toHaveLength(1);
 });

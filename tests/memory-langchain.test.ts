@@ -31,7 +31,7 @@ async function setup(status = 200) {
     res.setHeader('content-type', 'application/json'); res.statusCode = status;
     res.end(status !== 200 ? '{"Code":"Forbidden","RequestId":"memory-test-id","Message":"Access denied; token=PRIVATE_TOKEN"}' : JSON.stringify(action === 'SearchMemories'
       ? { success: true, data: { memories: [{ memory: { memoryId: 'm', content: { text: 'User likes coffee' }, scope: {} }, score: 1, similarity: 1 }] } }
-      : { success: true, data: { memoryIds: ['written'] } }));
+      : { success: true, data: { taskId: 'task-1' } }));
   }); servers.push(endpoint);
   const core = new AgentCore({ workspaceId: 'ws', regionId: 'cn-hangzhou', controlPlaneEndpoint: endpoint.url, accessKeyCredential: new AccessKeyCredential({ accessKeyId: 'test-ak', accessKeySecret: 'test-sk' }) }); cores.push(core);
   return { core, requests };
@@ -47,7 +47,7 @@ it.each([{ userId: 'user' }, { sessionId: 'session' }, { agentId: 'agent' }])('p
   await agent.invoke({ messages: [new HumanMessage('Drink?')] });
   expect(requests.map(r => r.action)).toEqual(['SearchMemories', 'AddMemories']);
   expect(requests[0]!.body.scope).toEqual(scope);
-  expect(requests[1]!.body).toEqual({ scope, messages: [{ role: 'user', content: 'Drink?' }, { role: 'assistant', content: 'Try coffee.' }] });
+  expect(requests[1]!.body).toEqual({ scope, messages: [{ role: 'user', content: 'Drink?' }, { role: 'assistant', content: 'Try coffee.' }], sync: false });
   expect(String(model.inputs[0]![0]!.content)).toContain('User likes coffee');
 });
 
@@ -68,7 +68,7 @@ it('runs createAgent through tools and records only fresh user input and the fin
   const result = await agent.invoke({ messages: [new HumanMessage('Old question'), new AIMessage('Old answer'), new HumanMessage('Drink?')] }, { context: scopes, configurable: { thread_id: 'test' } });
   expect(requests.map((r) => r.action)).toEqual(['SearchMemories', 'AddMemories']);
   expect(requests[0]!.body).toEqual({ query: 'Drink?', scope: scopes.read, topK: 5 });
-  expect(requests[1]!.body).toEqual({ scope: scopes.write, messages: [{ role: 'user', content: 'Drink?' }, { role: 'assistant', content: 'Try coffee.' }] });
+  expect(requests[1]!.body).toEqual({ scope: scopes.write, messages: [{ role: 'user', content: 'Drink?' }, { role: 'assistant', content: 'Try coffee.' }], sync: false });
   expect(model.inputs).toHaveLength(2);
   for (const input of model.inputs) {
     const injected = input[0]!;
@@ -80,7 +80,7 @@ it('runs createAgent through tools and records only fresh user input and the fin
   expect(result.agentcoreMemoryText).toBe(''); expect(result.agentcoreMemoryInput).toEqual([]); expect(result.agentcoreMemoryWriteScope).toBeNull();
   await agent.invoke({ messages: [new HumanMessage('Another question')] }, { context: { read: { agentId: 'other' }, write: { agentId: 'other', sessionId: 'another' } }, configurable: { thread_id: 'test' } });
   expect(requests[2]!.body.query).toBe('Another question');
-  expect(requests[3]!.body).toEqual({ scope: { agentId: 'other', sessionId: 'another' }, messages: [{ role: 'user', content: 'Another question' }, { role: 'assistant', content: 'Second answer.' }] });
+  expect(requests[3]!.body).toEqual({ scope: { agentId: 'other', sessionId: 'another' }, messages: [{ role: 'user', content: 'Another question' }, { role: 'assistant', content: 'Second answer.' }], sync: false });
 });
 
 it('is read-only by default and extracts only text blocks from trailing human messages', async () => {

@@ -99,12 +99,12 @@ const skill = await core.skills.managed('test-skill', '1.0.0');
 
 ## 记忆
 
-运行基础示例：`npx tsx examples/memory.ts`。它演示 `test-memory` 的写入与检索，分区和会话参数见 [Memory 快速开始](../README.md#使用-memory)。写入后可能需要一定时间才能检索到。
+运行基础示例：`npx tsx examples/memory.ts`。它演示 `test-memory` 的写入、任务查询与检索。写入后通过任务 ID 查询进度；如需等待提取完成，传入 `sync: true`。分区和会话参数见 [Memory 快速开始](../README.md#使用-memory)。新记忆可能需要一定时间才能检索到。
 
 框架接入见 LangChain、ADK 和 Mastra 示例。应用从可信业务上下文指定 `userId`、`agentId` 或 `sessionId`；框架读写范围均须显式提供至少一个字段，它们不是访问凭证。LangChain 和 Mastra 示例开启写回，ADK 示例在完成后保存一次会话。
 
 例如 `scopeResolver` 可以返回 `{ read: { userId: 'alice' }, write: { userId: 'alice', sessionId: 'session-1' } }`。
-ADK 仍通过 `partitionResolver(appName, userId)` 映射到 `agentId`；`addEventsToMemory` 可省略 `sessionId`。
+ADK 通过 `partitionResolver(appName, userId)` 映射到 `agentId`；`addEventsToMemory` 可省略 `sessionId`。
 
 ## 凭证与 Header
 

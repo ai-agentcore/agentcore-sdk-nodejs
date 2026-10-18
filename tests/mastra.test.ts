@@ -21,7 +21,7 @@ async function setup(options: { memoryStatus?: number; modelStatus?: number; fin
       res.statusCode = options.memoryStatus ?? 200;
       res.end(res.statusCode !== 200 ? '{"Code":"Forbidden","RequestId":"memory-test"}' : JSON.stringify(action === 'SearchMemories'
         ? { success: true, data: { memories: [{ memory: { memoryId: 'm', content: { text: `Likes coffee: ${body.scope.agentId}` }, scope: {} }, score: 1, similarity: 1 }] } }
-        : { success: true, data: { memoryIds: ['saved'] } })); return;
+        : { success: true, data: { taskId: 'task-1' } })); return;
     }
     const input = JSON.parse(raw); inputs.push(input);
     expect(req.headers.authorization).toBe('Bearer test-key'); expect(req.url).toBe('/v1/chat/completions');
@@ -70,7 +70,7 @@ it.each(['generate', 'stream'] as const)('runs Mastra %s through a native tool l
   expect(result.text).toContain('Try coffee.'); expect(env.toolCalls()).toBe(1); expect(env.inputs).toHaveLength(2);
   expect(env.requests.map(r => r.action)).toEqual(['SearchMemories', 'AddMemories']);
   expect(env.requests[0]!.body.query).toBe('Drink?');
-  expect(env.requests[1]!.body).toEqual({ scope: scopes.write, messages: [{ role: 'user', content: 'Drink?' }, { role: 'assistant', content: 'Try coffee.' }] });
+  expect(env.requests[1]!.body).toEqual({ sync: false, scope: scopes.write, messages: [{ role: 'user', content: 'Drink?' }, { role: 'assistant', content: 'Try coffee.' }] });
   for (const input of env.inputs) { expect(JSON.stringify(input.messages)).toContain('Likes coffee: agent'); expect(JSON.stringify(input.messages)).toContain('Original instruction'); }
   expect(JSON.stringify(result.response.messages)).not.toContain('Likes coffee: agent');
 });

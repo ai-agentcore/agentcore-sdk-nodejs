@@ -30,6 +30,7 @@ export interface MCPDescriptor {
   readonly status: string;
 }
 export interface SkillArtifact { version: string; archive: Uint8Array; }
+export interface TemplateArtifact { version: string; archive: Uint8Array; }
 export interface CredentialMetadata {
   readonly credentialId: string;
   readonly name: string;
@@ -157,6 +158,36 @@ export class AgentCoreControlPlane {
     return { version: resolvedVersion, archive: await this.downloadSkill(downloadURL) };
   }
 
+  async resolveSkillVersion(name: string, selectorType: string, value: string): Promise<string> {
+    if (selectorType === 'VERSION') return value;
+    const client = await this.client();
+    const response = await this.invoke(client, 'GetSkillDetail', () => client.getSkillDetailWithOptions(this.workspaceId, name, new models.GetSkillDetailRequest({}), {}, this.runtimeOptions()));
+    const data = responseBody(response.body).data;
+    if (value === 'HEAD' && data?.versions?.some((item) => item.version === 'HEAD')) return 'HEAD';
+    const selected = data?.labels?.[value];
+    if (!selected) throw new ResourceNotConfiguredError(`Skill ${JSON.stringify(name)} has no label ${JSON.stringify(value)}`);
+    return selected;
+  }
+
+  async getTemplate(name: string, version?: string): Promise<TemplateArtifact> {
+    const client = await this.client();
+    const path = `/workspaces/${encodeURIComponent(this.workspaceId)}/agent-specs/${encodeURIComponent(name)}`;
+    const request = async (action: string, suffix = '', query: Record<string, string> = {}): Promise<unknown> => {
+      const params = new $OpenApiUtil.Params({ action, version: '2026-08-04', protocol: 'HTTPS', pathname: path + suffix,
+        method: 'GET', authType: 'AK', style: 'ROA', reqBodyType: 'json', bodyType: 'json' });
+      const response = await this.invoke(client, action, () => client.callApi(params, new $OpenApiUtil.OpenApiRequest({ query }), this.runtimeOptions()));
+      return responseBody(response.body).data;
+    };
+    if (version === undefined) {
+      const detail = await request('GetAgentSpec') as { labels?: Record<string, string> } | undefined;
+      version = detail?.labels?.latest;
+      if (!version) throw new ResourceNotConfiguredError(`Agent template ${JSON.stringify(name)} has no latest version`);
+    }
+    const url = await request('DownloadAgentSpecViaOss', '/actions/download-via-oss', { agentSpecVersion: version });
+    if (typeof url !== 'string') throw new ConfigError('Invalid Agent template download URL');
+    return { version, archive: await this.downloadSkill(url, 'Agent template', 50 * 1024 * 1024) };
+  }
+
   close(): void { this.lifetime.abort(); }
 
   async resolveCredential(name: string): Promise<CredentialMetadata> {
@@ -214,7 +245,7 @@ export class AgentCoreControlPlane {
     }
   }
 
-  private async downloadSkill(value: string): Promise<Uint8Array> {
+  private async downloadSkill(value: string, resource = 'Skill', maxBytes = 10 * 1024 * 1024): Promise<Uint8Array> {
     let original: URL;
     try { original = new URL(value); } catch { throw new ConfigError('AgentCore returned an invalid Skill download URL'); }
     if (!['http:', 'https:'].includes(original.protocol) || original.username || original.password) throw new ConfigError('AgentCore returned an invalid Skill download URL');
@@ -225,8 +256,8 @@ export class AgentCoreControlPlane {
       try {
         const response = await fetch(candidate, { redirect: 'manual', signal: AbortSignal.any([this.lifetime.signal, AbortSignal.timeout(30_000)]) });
         if (response.ok) {
-          const archive = await readBytes(response, 10 * 1024 * 1024, 'Skill archive');
-          if (!archive.length) throw new ConfigError('Skill package is empty');
+          const archive = await readBytes(response, maxBytes, `${resource} archive`);
+          if (!archive.length) throw new ConfigError(`${resource} package is empty`);
           return archive;
         }
         status = response.status; await response.body?.cancel();
@@ -236,7 +267,7 @@ export class AgentCoreControlPlane {
       }
       this.logger.warn('agentcore.control_plane.skill.download.failed', { host: candidate.host, path: candidate.pathname, status });
       const fallback = candidate === original && (status === undefined || status >= 500 && status < 600) ? internalOSSURL(original) : undefined;
-      if (!fallback) throw new InvocationError(status ? `Skill package download failed with HTTP ${status}` : 'Skill package download failed');
+      if (!fallback) throw new InvocationError(status ? `${resource} package download failed with HTTP ${status}` : `${resource} package download failed`);
       this.logger.warn('agentcore.control_plane.skill.download.fallback', { fromHost: candidate.host, toHost: fallback.host });
       candidate = fallback;
     }

@@ -13,6 +13,7 @@ import { createRuntimeSource, DebugRuntimeSource } from './runtime/debug';
 import { requiredString, type AgentConfig } from './runtime/config';
 import type { ManagedRuntimeOptions, RuntimeBindings, RuntimeSource } from './runtime/managed';
 import { Skills } from './skill/loader';
+import { Templates } from './templates';
 import { BoundCredentials } from './auth/bound-credentials';
 import { MemoryStore } from './memory/client';
 import { CollaborationClient } from './collaboration/client';
@@ -36,6 +37,7 @@ interface ResourceContext {
 /** A single asynchronous Core. Direct resources do not require runtime files. */
 export class AgentCore {
   readonly skills: Skills;
+  readonly templates: Templates;
   readonly credentials: BoundCredentials;
   private readonly runtimeSource?: RuntimeSource;
   private runtime?: RuntimeBindings;
@@ -61,6 +63,11 @@ export class AgentCore {
       if (!this.context) await this.ensureRuntime();
       return { workspaceId: this.context!.workspaceId, provider: this.requireControlPlane() };
     } });
+    this.templates = new Templates(async () => {
+      this.ensureOpen();
+      if (!this.context) await this.ensureRuntime();
+      return { workspaceId: this.context!.workspaceId, provider: this.requireControlPlane() };
+    }, this.skills, options.skillWorkspaceDir, this.logger);
     if (options.workspaceId !== undefined || options.regionId !== undefined) {
       const workspaceId = requiredString(options.workspaceId, 'workspaceId and regionId must be provided together');
       const regionId = requiredString(options.regionId, 'workspaceId and regionId must be provided together');

@@ -63,7 +63,7 @@ export class Skills {
     const pending = (async () => {
       this.logger.info('agentcore.skill.managed.load.started', { workspace_id: workspaceId, name, version: options.version ?? 'latest' });
       const artifact = await provider.getSkill(name, options.version); component(artifact.version, 'version');
-      const files = await unpack(name, artifact.archive);
+      const files = await unpackArchive(artifact.archive, name);
       const hash = createHash('sha256');
       for (const [path, data] of [...files.entries()].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)) hash.update(path).update('\0').update(data).update('\0');
       const digest = hash.digest('hex');
@@ -91,8 +91,8 @@ function component(value: string, label: string): void {
 function safePath(path: string): void {
   if (!path || /[\\:\0]/.test(path) || posix.isAbsolute(path) || path !== posix.normalize(path) || path.split('/').some((part) => part === '.' || part === '..') || path === METADATA) throw new ConfigError('managed Skill contains an unsafe resource path');
 }
-async function unpack(name: string, archive: Uint8Array): Promise<Map<string, Buffer>> {
-  if (!archive.length || archive.length > MAX_BYTES) throw new ConfigError('Skill package exceeds the 10 MiB size limit');
+export async function unpackArchive(archive: Uint8Array, name?: string, maxBytes = MAX_BYTES): Promise<Map<string, Buffer>> {
+  if (!archive.length || archive.length > maxBytes) throw new ConfigError('Resource archive exceeds the size limit');
   try {
     const zip = await new Promise<ZipFile>((accept, reject) => fromBuffer(Buffer.from(archive), { lazyEntries: true, strictFileNames: true }, (error, value) => error ? reject(error) : accept(value)));
     const files = new Map<string, Buffer>(); let total = 0;
@@ -101,25 +101,34 @@ async function unpack(name: string, archive: Uint8Array): Promise<Map<string, Bu
       zip.on('entry', (entry: Entry) => { void (async () => {
         if (entry.fileName.endsWith('/')) return;
         safePath(entry.fileName);
-        if (!entry.fileName.startsWith(`${name}/`)) throw new ConfigError('managed Skill package must use the Skill name as its root directory');
-        const path = entry.fileName.slice(name.length + 1); safePath(path);
+        if (name !== undefined && !entry.fileName.startsWith(`${name}/`)) throw new ConfigError('managed Skill package must use the Skill name as its root directory');
+        const path = name === undefined ? entry.fileName : entry.fileName.slice(name.length + 1); safePath(path);
         if (files.has(path)) throw new ConfigError('managed Skill package contains a duplicate path');
         if (((entry.externalFileAttributes >>> 16) & 0xf000) === 0xa000) throw new ConfigError('Skill directories must not contain symbolic links');
-        if (entry.uncompressedSize > MAX_BYTES - total) throw new ConfigError('Skill content exceeds the 10 MiB size limit');
+        if (entry.uncompressedSize > maxBytes - total) throw new ConfigError('Resource content exceeds the size limit');
         const stream = await new Promise<NodeJS.ReadableStream>((resolve, reject) => zip.openReadStream(entry, (error, stream) => error ? reject(error) : resolve(stream)));
         const chunks: Buffer[] = [];
-        for await (const chunk of stream) { const data = Buffer.from(chunk); total += data.length; if (total > MAX_BYTES) throw new ConfigError('Skill content exceeds the 10 MiB size limit'); chunks.push(data); }
+        for await (const chunk of stream) { const data = Buffer.from(chunk); total += data.length; if (total > maxBytes) throw new ConfigError('Resource content exceeds the size limit'); chunks.push(data); }
         files.set(path, Buffer.concat(chunks));
       })().then(() => zip.readEntry(), (error) => { zip.close(); reject(error); }); });
       zip.readEntry();
     });
-    if (!files.has('SKILL.md')) throw new ConfigError(`managed Skill package does not contain ${name}/SKILL.md`);
+    if (name !== undefined && !files.has('SKILL.md')) throw new ConfigError(`managed Skill package does not contain ${name}/SKILL.md`);
     for (const path of files.keys()) {
       let parent = posix.dirname(path);
       while (parent !== '.') { if (files.has(parent)) throw new ConfigError('managed Skill contains a colliding resource path'); parent = posix.dirname(parent); }
     }
     return files;
   } catch (error) { if (error instanceof ConfigError) throw error; throw new ConfigError('managed Skill package is not a valid ZIP archive'); }
+}
+
+/** @internal Materialize a static template Skill through the existing atomic writer. */
+export async function materializeTemplateSkill(target: string, name: string, files: Map<string, Buffer>, metadata: Record<string, string>): Promise<Skill> {
+  if (!files.has('SKILL.md')) throw new ConfigError(`Static Skill ${JSON.stringify(name)} has no SKILL.md`);
+  const write = (writes.get(target) ?? Promise.resolve()).catch(() => undefined).then(() => materialize(target, files, metadata));
+  writes.set(target, write);
+  try { await write; } finally { if (writes.get(target) === write) writes.delete(target); }
+  return Object.freeze({ ...await loadDirectory(target), name, workspaceId: metadata.workspaceId, digest: metadata.digest });
 }
 
 async function materialize(target: string, files: Map<string, Buffer>, metadata: Record<string, string>): Promise<void> {

@@ -19,6 +19,9 @@ At the start of every newly assigned Subtask or revision turn, you MUST load and
 files, load and follow \`file-sharing\`. If a required Skill is unavailable, do not perform
 collaboration writes.
 
+When handling chat attachments or delivering local files to the current room, load and follow
+\`room-files\`. After downloading, use the application's existing file or image reading tools.
+
 For assigned Subtask work, produce only the requested deliverables and perform only explicitly
 required checks or checks necessary to establish usability. Once they pass, submit a short Result.
 After submission succeeds, reply with one short sentence that it awaits review; do not restate the

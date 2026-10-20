@@ -4,7 +4,7 @@ import { ContextError } from '../errors';
 
 export class RequestContext {
   readonly headers: Readonly<Record<string, string>>;
-  constructor(headers: Readonly<Record<string, string>>) {
+  constructor(headers: Readonly<Record<string, string>>, readonly signal?: AbortSignal) {
     this.headers = Object.freeze(Object.fromEntries(Object.entries(headers).map(([k, v]) => [k.toLowerCase(), v])));
   }
   [inspect.custom](): string { return 'RequestContext(headers=<redacted>)'; }

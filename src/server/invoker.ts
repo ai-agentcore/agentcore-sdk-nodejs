@@ -13,7 +13,7 @@ export class AgentInvoker {
 
   async *invokeStream(request: AgentRequest): AsyncGenerator<AgentEvent> {
     if (!this.handler) throw new Error('AgentCore handler is not configured');
-    const context = new RequestContext(Object.fromEntries(request.rawRequest.headers));
+    const context = new RequestContext(Object.fromEntries(request.rawRequest.headers), request.signal);
     const fields = { protocol: request.protocol, requestId: context.headers['x-request-id'],
       sessionId: context.headers['x-agentcore-session-id'] };
     this.logger.info('agentcore.server.invoke.started', fields);

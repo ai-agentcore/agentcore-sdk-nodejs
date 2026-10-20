@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import { lookup } from 'mime-types';
 import { Tool, type ToolArguments } from 'alibabacloud-agentcore-sdk';
+import { RequestContext, useContext } from 'alibabacloud-agentcore-sdk/runtime';
 import { Skills, type Skill } from 'alibabacloud-agentcore-sdk/skill';
 import { bindCollaborationContext, currentCollaborationContext, CollaborationError, CollaborationConfigError,
   CollaborationContextError, CollaborationContextRequiredError, CollaborationDisabledError,
@@ -11,6 +12,7 @@ import { TeamsProvider, type TeamsSnapshot } from './teams';
 import { TaskServiceClient } from './task-service';
 import { CollaborationWorkspace, teamPath } from './workspace';
 import { WORKER_PROMPT } from './worker-prompt';
+import { MatrixFileClient } from './matrix-files';
 
 export type TeamsSnapshotProvider = () => TeamsSnapshot | undefined | Promise<TeamsSnapshot | undefined>;
 type Input = ToolArguments;
@@ -23,7 +25,8 @@ const limit = { type: 'integer', minimum: 1, maximum: 100 }, boolean = { type: '
 export class WorkerCollaboration {
   private readonly workspace: CollaborationWorkspace;
   private readonly workerTools: Tool[];
-  constructor(private readonly teams: TeamsProvider | TeamsSnapshotProvider, private readonly client: TaskServiceClient, workspace: string) {
+  constructor(private readonly teams: TeamsProvider | TeamsSnapshotProvider, private readonly client: TaskServiceClient, workspace: string,
+    private readonly matrix?: MatrixFileClient) {
     this.workspace = new CollaborationWorkspace(workspace); this.workerTools = this.createTools();
   }
   composePrompt(userPrompt: string): string {
@@ -33,11 +36,14 @@ export class WorkerCollaboration {
   }
   tools(): Tool[] { return [...this.workerTools]; }
   skills(): Promise<Skill[]> { return new Skills().local(fileURLToPath(new URL('../worker-skills/', import.meta.url))); }
-  requestContext<T>(headers: Readonly<Record<string, string>>, callback: () => T): T { return bindCollaborationContext(headers, callback); }
+  requestContext<T>(headers: Readonly<Record<string, string>>, callback: () => T, signal?: AbortSignal): T {
+    const call = () => bindCollaborationContext(headers, callback);
+    return signal ? useContext(new RequestContext(headers, signal), call) : call();
+  }
 
   private createTools(): Tool[] {
     const tools: Tool[] = [];
-    const add = (name: string, description: string, properties: Record<string, Field>, required: string[], mode: 'read' | 'write' | 'team', operation: Operation) => {
+    const add = (name: string, description: string, properties: Record<string, Field>, required: string[], mode: 'read' | 'write' | 'team' | 'room', operation: Operation) => {
       tools.push(new Tool({ name: 'agentteams_' + name, description, parameters: { type: 'object', properties, required, additionalProperties: false }, invoke: async input => {
         try {
           validate(input, properties, required);
@@ -45,7 +51,10 @@ export class WorkerCollaboration {
           if (!snapshot) throw new CollaborationDisabledError('Collaboration is not enabled for this Agent.');
           const context = currentCollaborationContext(false);
           let teamId: string | undefined;
-          if (mode === 'write') {
+          if (mode === 'room') {
+            if (!context) throw new CollaborationContextRequiredError('A current Matrix room context is required.');
+            if (!this.matrix) throw new CollaborationConfigError('Matrix file client is not configured.');
+          } else if (mode === 'write') {
             if (!context) throw new CollaborationContextRequiredError('This action is only available from a collaboration request in its Task Room.');
             if (context.roomKind !== 'task' || !context.teamId) throw new CollaborationTaskUnauthorizedError('This operation must run in the owning Task Room.');
             workerTeam(snapshot, context.teamId);
@@ -119,6 +128,10 @@ export class WorkerCollaboration {
       }
       return { action: 'pull', path, localPath, transferred: files.length, files };
     });
+    add('download_room_file', 'Download an attachment by exact event_id into the local workspace. Use your existing reading tools to inspect it.',
+      { event_id: text }, ['event_id'], 'room', (s, a, c) => this.matrix!.download(s, c!, str(a, 'event_id'), this.workspace));
+    add('send_room_file', 'Send a workspace file or image to the current chat. Report delivery only after success.',
+      { local_path: text, caption: text }, ['local_path'], 'room', (s, a, c) => this.matrix!.send(s, c!, str(a, 'local_path'), opt(a, 'caption'), this.workspace));
     return tools;
   }
   private async selectTeamFiles(snapshot: TeamsSnapshot, team: string, path: string): Promise<{ exact: boolean; items: Array<Input & { path: string }> }> {

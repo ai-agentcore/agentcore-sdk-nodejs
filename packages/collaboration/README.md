@@ -97,13 +97,32 @@ async function streamAgent(
 
 `emit` 由自建 Server 实现，负责将 LangChain 更新编码成平台配置的 AG-UI / OpenAI 等协议并写入响应；这些更新本身不是协议事件。客户端断开时触发传入的 `AbortSignal`。完整的流迭代必须在 `requestContext` 回调内完成，不要只从回调返回生成器再到外部消费。
 
-请求入口应先完成鉴权，并从可信平台入口接收 `X-AgentCore-Collaboration-Context` 和 `X-AgentCore-Session-ID`，不能直接信任任意客户端提供的协作 Header。`worker.requestContext()` 只绑定协作上下文，不代替入口鉴权，也不绑定 SDK 的普通请求 Context。
+请求入口应先完成鉴权，并从可信平台入口接收 `X-AgentCore-Collaboration-Context` 和 `X-AgentCore-Session-ID`，不能直接信任任意客户端提供的协作 Header。`worker.requestContext()` 默认只绑定协作上下文，不代替入口鉴权；传入下文的取消信号时，同时绑定该请求的普通 Context。
 
 应用退出时调用 `await core.close()`。无需使用 SDK Server，也不要求选择特定 Web 框架。
 
 ## 协作环境配置
 
 协作工具调用时重新读取运行时 env 文件（默认 `/var/run/agentcore/agent/env`）。任务服务地址和具名 Matrix Token 优先使用文件中的值，缺少的字段从进程环境变量补充。文件不存在时允许仅使用环境变量；必需字段仍缺失、文件无法读取或格式错误时，调用报错，不静默回退。文件中的凭证更新会在后续调用中生效，不会被旧的进程环境变量覆盖。
+
+## Matrix 房间附件
+
+注册上述工具和 Skills 后，会包含 `room-files` Skill 及两个工具，无需改变 AG-UI / OpenAI 消息格式或增加附件 Header：
+
+| 工具 | 参数 | 成功结果 `data` |
+|---|---|---|
+| `agentteams_download_room_file` | `event_id` | `event_id`、`local_path`、`filename`、`content_type`、`size` |
+| `agentteams_send_room_file` | `local_path`、可选 `caption` | `event_id`、`filename`、`status: "sent"` |
+
+群聊可以先发送文件，再回复该文件并 @Agent。转发输入只包含附件摘要及事件 ID；Token 和媒体 URL 不交给模型。房间文件需要 Matrix 身份、当前请求 Context 和房间访问权限，不要求 Team 成员关系。自建 Server 继续通过 `worker.requestContext(headers, callback)` 绑定完整调用。
+
+支持请求取消的自建 Server 可传入第三个参数 `worker.requestContext(headers, callback, signal)`，取消时中止该请求的文件传输，不关闭其他会话共用的客户端。使用本次版本的 `AgentCoreServer` 时自动传递请求取消信号；旧版基础 SDK 不具备自动传递能力。
+
+文件保存到协作工作目录独立的 `attachments/` 子目录，失败时清理半文件；成功文件的保留周期由应用管理。发送只接受工作目录内的普通文件，不允许越界或符号链接，大小受 Matrix 媒体上限约束。PNG/JPEG/GIF/WebP 发送为原生图片，其他格式发送为普通附件。不支持加密附件或跨服务器媒体拉取。
+
+下载只传输文件，不读取、解析文件。将已有文件/图片读取工具与 `worker.tools()` 一起注册；图片还要求视觉模型。未提供读取工具时，Agent 应说明限制，不根据文件名猜测内容。
+
+发送成功会在主时间线回复当前消息，不自动 Mention、不替换 Working 消息、不提交 Task Result 或结束 Run。只有 `status: "sent"` 表示已收到 Matrix 消息事件 ID；`COLLABORATION_ROOM_FILE_SEND_UNKNOWN` 不可盲目重试。先升级协作包和 Agent，再升级转发组件。
 
 ## 升级
 

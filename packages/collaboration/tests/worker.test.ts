@@ -48,9 +48,9 @@ async function setup() {
 
 it('exposes exactly the Worker tool surface and bundled skills, without Manager operations or credentials', async () => {
   const { worker, call, directory } = await setup();
-  expect(worker.tools()).toHaveLength(24); expect(new Set(worker.tools().map(t => t.name)).size).toBe(24);
+  expect(worker.tools()).toHaveLength(26); expect(new Set(worker.tools().map(t => t.name)).size).toBe(26);
   expect(worker.tools().some(t => /create_task|assign_subtask|approve/.test(t.name))).toBe(false);
-  const skills = await worker.skills(); expect(skills.map(s => s.name)).toEqual(['file-sharing', 'task-execution']);
+  const skills = await worker.skills(); expect(skills.map(s => s.name)).toEqual(['file-sharing', 'room-files', 'task-execution']);
   expect(skills.every(s => s.instruction.length > 300 && s.files.includes('SKILL.md'))).toBe(true);
   const prompt = worker.composePrompt('Application instructions.');
   expect(prompt).not.toContain('You are an AgentCore Worker');

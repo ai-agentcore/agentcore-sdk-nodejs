@@ -46,6 +46,7 @@ export class DebugCollaborationRuntime {
       return this.snapshot;
     });
   }
+  matrixEndpoint(): string { return httpUrl(this.source.matrixUrl, 'Matrix endpoint'); }
   endpoint(): string {
     try {
       const override = process.env.AGENTCORE_TASK_SERVICE_ENDPOINT?.trim();

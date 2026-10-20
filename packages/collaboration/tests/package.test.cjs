@@ -38,8 +38,8 @@ test('independent addon tarballs share Core contracts across ESM/CJS and upgrade
       } finally { await app.close(); }
       assert.equal(addon.currentCollaborationContext(false), undefined);
       const worker = new addon.WorkerCollaboration(() => undefined, {}, process.cwd());
-      assert.equal(worker.tools().length, 24);
-      assert.deepEqual((await worker.skills()).map(skill => skill.name), ['file-sharing', 'task-execution']);
+      assert.equal(worker.tools().length, 26);
+      assert.deepEqual((await worker.skills()).map(skill => skill.name), ['file-sharing', 'room-files', 'task-execution']);
       const server = http.createServer((req, res) => {
         assert.equal(req.headers.authorization, 'Bearer test-token');
         if (req.url === '/v1/tasks/task') res.end('{"taskId":"task","roomId":"!room"}');
@@ -58,7 +58,7 @@ test('independent addon tarballs share Core contracts across ESM/CJS and upgrade
         const core = root.AgentCore.auto({ teamsPath: 'teams.yaml', envPath: 'env' });
         const [one, two] = await Promise.all([core.collaboration.worker(), core.collaboration.worker()]);
         assert.equal(one, two); assert.equal(core.config, undefined);
-        assert.equal((await one.skills()).length, 2);
+        assert.equal((await one.skills()).length, 3);
         assert.deepEqual(await one.tools().find(tool => tool.name === 'agentteams_get_task').invoke({ task_id: 'task' }), { ok: true, data: { taskId: 'task', roomId: '!room' } });
         const workerApp = new api.AgentCoreServer({ invoke: async () => JSON.stringify(await one.tools().find(tool => tool.name === 'agentteams_ack_subtask').invoke({ subtask_id: 'sub' })) });
         const workerEndpoint = await workerApp.start({ port: 0, hostname: '127.0.0.1' });

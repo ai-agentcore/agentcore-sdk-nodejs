@@ -18,6 +18,7 @@ describe('AgentCore Server real HTTP', () => {
     const { url } = await start(async function* (request, context) {
       expect(request.protocol).toBe('openai');
       expect(context).toBe(currentContext());
+      expect(context.signal).toBe(request.signal);
       expect(context.headers['x-agentcore-session-id']).toBe('header-session');
       yield 'hello '; await Promise.resolve();
       expect(currentContext()).toBe(context);
@@ -163,6 +164,7 @@ describe('AgentCore Server real HTTP', () => {
     const finished = new Promise<void>(resolve => { cleaned = resolve; });
     const { url } = await start(async function* (request) {
       try {
+        expect(currentContext()?.signal).toBe(request.signal);
         entered();
         await new Promise<void>((_, reject) => request.signal.addEventListener('abort', () => reject(request.signal.reason), { once: true }));
         yield 'not reached';

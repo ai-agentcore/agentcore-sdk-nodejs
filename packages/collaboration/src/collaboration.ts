@@ -5,11 +5,13 @@ import { DebugCollaborationRuntime } from './debug';
 import { TeamsProvider } from './teams';
 import { TaskServiceClient } from './task-service';
 import { WorkerCollaboration } from './worker';
+import { MatrixFileClient } from './matrix-files';
 
 export class Collaboration implements CollaborationRuntime {
   private readonly teams: TeamsProvider;
   private readonly debug?: DebugCollaborationRuntime;
   private readonly client: TaskServiceClient;
+  private readonly matrix: MatrixFileClient;
   private instance?: Promise<WorkerCollaboration>;
   private closed = false;
   constructor(private readonly options: CollaborationOptions = {}) {
@@ -18,16 +20,20 @@ export class Collaboration implements CollaborationRuntime {
       const debug = this.debug = new DebugCollaborationRuntime(options.debugSource, { logger: options.logger });
       this.client = new TaskServiceClient({ endpointProvider: () => debug.endpoint(), tokenProvider: name => debug.token(name),
         tokenRefresher: (name, token) => debug.refreshToken(name, token), logger: options.logger });
+      this.matrix = new MatrixFileClient({ endpointProvider: () => debug.matrixEndpoint(), tokenProvider: name => debug.token(name),
+        tokenRefresher: (name, token) => debug.refreshToken(name, token), logger: options.logger });
     } else {
       const environment = new RuntimeEnvironmentProvider(options.envPath || process.env.AGENTCORE_ENV_PATH);
       this.client = new TaskServiceClient({ endpointProvider: () => environment.taskServiceEndpoint(), tokenProvider: name => environment.value(name), logger: options.logger });
+      this.matrix = new MatrixFileClient({ endpointProvider: () => environment.value('AGENTTEAMS_MATRIX_URL'),
+        tokenProvider: name => environment.value(name), logger: options.logger });
     }
   }
   worker(): Promise<WorkerCollaboration> {
     if (this.closed) return Promise.reject(new Error('AgentCore collaboration is closed'));
     return this.instance ??= this.createWorker().catch(error => { this.instance = undefined; throw error; });
   }
-  close(): void { this.closed = true; this.client.close(); }
+  close(): void { this.closed = true; this.client.close(); this.matrix.close(); }
   private async createWorker(): Promise<WorkerCollaboration> {
     const provider = this.debug && !this.options.teamsPath ? () => this.debug!.teamsSnapshot() : () => this.teams.snapshot();
     await provider();
@@ -37,6 +43,6 @@ export class Collaboration implements CollaborationRuntime {
       if (!(await stat(workspace)).isDirectory()) throw new Error('directory');
     } catch { throw new CollaborationConfigError('The collaboration workspace must be an existing directory.'); }
     if (this.closed) throw new Error('AgentCore collaboration is closed');
-    return new WorkerCollaboration(provider, this.client, workspace);
+    return new WorkerCollaboration(provider, this.client, workspace, this.matrix);
   }
 }

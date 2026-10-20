@@ -38,7 +38,7 @@ export class AgentInvoker {
       if (request.signal.aborted) this.logger.info('agentcore.server.invoke.cancelled', fields);
       else this.logger.error('agentcore.server.invoke.failed', { ...fields, ...failureFields(error) });
       throw error;
-    }
+    } finally { await context.close(); }
     this.logger.info('agentcore.server.invoke.succeeded', fields);
   }
   async invoke(request: AgentRequest): Promise<AgentEvent[]> {

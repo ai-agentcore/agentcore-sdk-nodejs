@@ -3,6 +3,9 @@ import { inspect } from 'node:util';
 import { ContextError } from '../errors';
 
 export class RequestContext {
+  private readonly cleanups: Array<() => Promise<void>> = [];
+  onClose(cleanup: () => Promise<void>): void { this.cleanups.push(cleanup); }
+  async close(): Promise<void> { await Promise.all(this.cleanups.splice(0).map((cleanup) => cleanup())); }
   readonly headers: Readonly<Record<string, string>>;
   constructor(headers: Readonly<Record<string, string>>, readonly signal?: AbortSignal) {
     this.headers = Object.freeze(Object.fromEntries(Object.entries(headers).map(([k, v]) => [k.toLowerCase(), v])));

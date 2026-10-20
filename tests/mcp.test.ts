@@ -10,11 +10,127 @@ import { MCPClient, mcpServerURL } from '../src/mcp/client';
 import { parseAgentConfigMapping } from '../src/runtime/config';
 import { configMapping, httpServer } from './helpers';
 import { nullLogger } from '../src/logging';
+import { RequestContext, currentContext, useContext } from '../src/runtime/context';
+import { AgentCoreServer } from '../src/server';
+import { AgentInvoker } from '../src/server/invoker';
 
 const endpoints: Array<Awaited<ReturnType<typeof httpServer>>> = [];
 const servers: Server[] = [];
 const clients: MCPClient[] = [];
 afterEach(async () => { await Promise.all(clients.splice(0).map((c) => c.close())); await Promise.all(servers.splice(0).map((s) => s.close())); await Promise.all(endpoints.splice(0).map((s) => s.close())); });
+
+it('isolates WAT sessions on a shared managed client and uses the caller of discovered tools', async () => {
+  const f = await fixture();
+  const mapping = configMapping(); mapping.spec.mcp.gatewayUrl = f.url;
+  const descriptor = { mcpServerId: 'search-id', name: 'search', protocol: 'HTTP', type: 'CUSTOM', status: 'RUNNING' };
+  const client = MCPClient.platform(parseAgentConfigMapping(mapping), descriptor); clients.push(client);
+  const tools = await useContext(new RequestContext({ 'X-AgentCore-Accessor-WAT': 'user-a' }), () => client.listTools());
+  await Promise.all(['user-b', 'user-c'].map((wat) => useContext(
+    new RequestContext({ 'X-AgentCore-Accessor-WAT': wat }), () => tools[0]!.invoke({ value: wat }))));
+  await client.callTool('echo', {});
+  expect(f.calls.filter((call) => call.rpc === 'tools/call').map((call) => call.wat).sort()).toEqual(['user-b', 'user-c', undefined].sort());
+  expect(f.calls.filter((call) => call.rpc === 'initialize').map((call) => call.wat)).toEqual(['user-a', 'user-b', 'user-c', undefined]);
+  expect(f.calls.every((call) => call.authorization === 'Bearer consumer-secret')).toBe(true);
+});
+
+it.each(['X-AgentCore-Accessor-WAT', 'x-agentcore-accessor-jwt', 'X-AgentCore-Accessor-MatrixID'])(
+  'rejects fixed accessor header %s', (name) => {
+    expect(() => MCPClient.platform(parseAgentConfigMapping(configMapping()),
+      { mcpServerId: 'search-id', name: 'search', protocol: 'HTTP', type: 'CUSTOM', status: 'RUNNING' }, { headers: { [name]: 'forged' } })).toThrow('protected');
+  });
+
+it('forwards each HTTP invocation WAT through a streaming handler to a shared managed MCP client', async () => {
+  const f = await fixture();
+  const mapping = configMapping(); mapping.spec.mcp.gatewayUrl = f.url;
+  const client = MCPClient.platform(parseAgentConfigMapping(mapping),
+    { mcpServerId: 'search-id', name: 'search', protocol: 'HTTP', type: 'CUSTOM', status: 'RUNNING' }); clients.push(client);
+  const tools = await client.listTools();
+  const agent = new AgentCoreServer({ invoke: async function* () {
+    await tools[0]!.invoke({ phase: 'first' });
+    yield 'first';
+    await Promise.resolve();
+    await tools[0]!.invoke({ phase: 'second' });
+    yield 'second';
+  } });
+  const url = await agent.start({ port: 0, hostname: '127.0.0.1' });
+  try {
+    await Promise.all(['wat-a', 'wat-b'].map(async (wat) => {
+      const response = await fetch(url + '/openai/v1/chat/completions', { method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-AgentCore-Accessor-WAT': wat },
+        body: JSON.stringify({ messages: [], stream: true }) });
+      expect(response.status).toBe(200);
+      expect(await response.text()).toContain('second');
+    }));
+    expect(f.calls.filter((call) => call.rpc === 'tools/call').map((call) => call.wat).sort())
+      .toEqual(['wat-a', 'wat-a', 'wat-b', 'wat-b']);
+    expect(currentContext(false)).toBeUndefined();
+  } finally { await agent.close(); }
+});
+
+it('reuses each request session with concurrent per-call headers, then terminates it without leaking headers', async () => {
+  const f = await fixture();
+  const mapping = configMapping(); mapping.spec.mcp.gatewayUrl = f.url;
+  const client = MCPClient.platform(parseAgentConfigMapping(mapping),
+    { mcpServerId: 'search-id', name: 'search', protocol: 'HTTP', type: 'CUSTOM', status: 'RUNNING' }); clients.push(client);
+  await Promise.all(['a', 'b'].map(async wat => {
+    const context = new RequestContext({ 'X-AgentCore-Accessor-WAT': wat });
+    try {
+      await useContext(context, async () => {
+        await client.listTools();
+        await Promise.all(['one', 'two'].map(value => client.callTool('echo', { value }, { headers: { 'X-Call': value } })));
+        await client.callTool('echo', {});
+        await expect(client.callTool('echo', {}, { headers: { 'X-AgentCore-Accessor-WAT': 'forged' } })).rejects.toThrow('protected');
+      });
+    } finally { await context.close(); }
+  }));
+  expect(f.initialized()).toBe(2);
+  for (const wat of ['a', 'b']) {
+    const calls = f.calls.filter(call => call.wat === wat);
+    expect(new Set(calls.filter(call => call.session).map(call => call.session)).size).toBe(1);
+    expect(calls.filter(call => call.rpc === 'tools/call').map(call => call.business).sort()).toEqual(['one', 'two', undefined].sort());
+    expect(calls.at(-1)?.method).toBe('DELETE');
+    expect(calls.at(-1)?.business).toBeUndefined();
+  }
+});
+
+it.each(['completed', 'failed', 'cancelled'])('terminates the request session when the handler is %s', async finish => {
+  const f = await fixture();
+  const mapping = configMapping(); mapping.spec.mcp.gatewayUrl = f.url;
+  const client = MCPClient.platform(parseAgentConfigMapping(mapping),
+    { mcpServerId: 'search-id', name: 'search', protocol: 'HTTP', type: 'CUSTOM', status: 'RUNNING' }); clients.push(client);
+  const invoker = new AgentInvoker(async function* () {
+    await client.callTool('echo', {});
+    yield 'first';
+    if (finish === 'failed') throw new Error('handler failed');
+    if (finish === 'cancelled') await new Promise(() => undefined);
+  });
+  const stream = invoker.invokeStream({ protocol: 'openai', messages: [], stream: true,
+    rawRequest: new Request('http://localhost', { headers: { 'X-AgentCore-Accessor-WAT': 'wat' } }),
+    rawPayload: {}, signal: new AbortController().signal });
+  await stream.next();
+  expect(f.calls.some(call => call.method === 'DELETE')).toBe(false);
+  if (finish === 'failed') await expect(stream.next()).rejects.toThrow('handler failed');
+  else if (finish === 'cancelled') await stream.return(undefined);
+  else expect((await stream.next()).done).toBe(true);
+  expect(f.calls.filter(call => call.method === 'DELETE')).toHaveLength(1);
+});
+
+it('cancels an in-flight scoped MCP operation on HTTP request abort and closes its session', async () => {
+  const f = await fixture({ toolDelay: 200 });
+  const mapping = configMapping(); mapping.spec.mcp.gatewayUrl = f.url;
+  const client = MCPClient.platform(parseAgentConfigMapping(mapping),
+    { mcpServerId: 'search-id', name: 'search', protocol: 'HTTP', type: 'CUSTOM', status: 'RUNNING' }); clients.push(client);
+  const abort = new AbortController();
+  const invoker = new AgentInvoker(async () => { await client.callTool('echo', {}); return 'done'; });
+  const pending = invoker.invoke({ protocol: 'openai', messages: [], stream: false,
+    rawRequest: new Request('http://localhost', { headers: { 'X-AgentCore-Accessor-WAT': 'wat' } }),
+    rawPayload: {}, signal: abort.signal });
+  const failure = expect(pending).rejects.toThrow();
+  while (!f.calls.some(call => call.rpc === 'tools/call')) await sleep(1);
+  abort.abort();
+  await failure;
+  expect(f.calls.filter(call => call.method === 'DELETE')).toHaveLength(1);
+});
 
 function mcpServer(options: { metadataDelay?: number; toolDelay?: number } = {}) {
   const server = new Server({ name: 'real-test-mcp', version: '1' }, { capabilities: { tools: {} } }); servers.push(server);
@@ -32,14 +148,14 @@ function mcpServer(options: { metadataDelay?: number; toolDelay?: number } = {})
 
 async function fixture(options: { metadataDelay?: number; toolDelay?: number } = {}) {
   const sessions = new Map<string, StreamableHTTPServerTransport>();
-  const calls: Array<{ path: string; method?: string; authorization?: string; rpc?: string; custom?: string | string[] }> = [];
+  const calls: Array<{ path: string; method?: string; authorization?: string; rpc?: string; custom?: string | string[]; wat?: string | string[]; session?: string; business?: string | string[] }> = [];
   let initialized = 0;
   let rejectSession = false;
   const endpoint = await httpServer((req, res) => {
     void (async () => {
       let body = ''; for await (const chunk of req) body += String(chunk);
       const message = body ? JSON.parse(body) as { method?: string } : undefined;
-      calls.push({ path: req.url!, method: req.method, authorization: req.headers.authorization, rpc: message?.method, custom: req.headers['x-api-key'] });
+      calls.push({ path: req.url!, method: req.method, authorization: req.headers.authorization, rpc: message?.method, custom: req.headers['x-api-key'], wat: req.headers['x-agentcore-accessor-wat'], session: req.headers['mcp-session-id'] as string | undefined, business: req.headers['x-call'] });
       const id = req.headers['mcp-session-id'] as string | undefined;
       if (id && (rejectSession || !sessions.has(id))) { res.statusCode = 404; res.end('session missing'); return; }
       let transport = id ? sessions.get(id) : undefined;
@@ -56,7 +172,7 @@ async function fixture(options: { metadataDelay?: number; toolDelay?: number } =
 }
 
 describe('official MCP Streamable HTTP', () => {
-  it('fetches bound headers once per session and refetches on reconnect', async () => {
+  it('refreshes bound headers on every HTTP request while reusing the session', async () => {
     const endpoint = await fixture(); const mapping = configMapping(); mapping.spec.mcp.gatewayUrl = endpoint.url;
     let fetches = 0;
     const client = MCPClient.platform(parseAgentConfigMapping(mapping),
@@ -64,13 +180,15 @@ describe('official MCP Streamable HTTP', () => {
       { credentialHeadersProvider: async () => ({ 'X-API-Key': `key-${++fetches}` }), headers: { 'X-Business': 'app' } });
     clients.push(client);
     await Promise.all([client.listTools(), client.callTool('echo', {})]);
-    expect(fetches).toBe(1);
+    expect(fetches).toBeGreaterThan(1);
+    const before = fetches;
     endpoint.rejectSession(true);
     await expect(client.callTool('echo', {})).rejects.toThrow();
     endpoint.rejectSession(false);
     await client.callTool('echo', {});
-    expect(fetches).toBe(2);
-    expect(endpoint.calls.filter((c) => c.rpc === 'initialize').map((c) => c.custom)).toEqual(['key-1', 'key-2']);
+    expect(fetches).toBeGreaterThan(before);
+    expect(endpoint.initialized()).toBe(2);
+    expect(new Set(endpoint.calls.filter((c) => c.rpc === 'tools/call').map((c) => c.custom)).size).toBe(3);
     expect(endpoint.calls.every((c) => c.authorization === 'Bearer consumer-secret')).toBe(true);
   });
   it.each<Record<string, string>>([{ Authorization: 'replace' }, { 'X-API-Key': 'bound' }])('rejects credential header collisions before network I/O', async (bound) => {

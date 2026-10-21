@@ -242,11 +242,13 @@ describe('official MCP Streamable HTTP', () => {
   it('reuses a persistent session, follows tool pages, and calls canonical tools', async () => {
     const endpoint = await fixture();
     const client = MCPClient.direct({ url: endpoint.url + '/mcp', headersProvider: () => ({ Authorization: 'Bearer direct-token' }) }); clients.push(client);
-    const [tools, same] = await Promise.all([client.listTools(), client.listTools()]);
+    const context = new RequestContext({ 'X-AgentCore-Accessor-WAT': 'platform-wat' });
+    const [tools, same] = await useContext(context, () => Promise.all([client.listTools(), client.listTools()]));
     expect(tools.map((tool) => tool.name)).toEqual(['echo', 'second']); expect(same).toHaveLength(2);
-    expect(await tools[0]!.invoke({ hello: 'world' })).toMatchObject({ content: [{ type: 'text', text: '{"hello":"world"}' }] });
+    expect(await useContext(context, () => tools[0]!.invoke({ hello: 'world' }))).toMatchObject({ content: [{ type: 'text', text: '{"hello":"world"}' }] });
     expect(endpoint.initialized()).toBe(1);
     expect(endpoint.calls.every((call) => call.authorization === 'Bearer direct-token')).toBe(true);
+    expect(endpoint.calls.every((call) => call.wat === undefined)).toBe(true);
   });
   it('defaults managed resources to Streamable HTTP even if their upstream protocol is SSE', async () => {
     const endpoint = await fixture(); const config = configMapping(); config.spec.mcp.gatewayUrl = `${endpoint.url}/mcp-servers`;

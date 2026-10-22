@@ -14,7 +14,7 @@
 npm install alibabacloud-agentcore-sdk alibabacloud-agentcore-collaboration
 ```
 
-协作包 0.1.x 适用于基础 SDK `^0.1.0`，需要 Node.js 20.3+。同时使用框架时，还需满足该框架的版本要求。
+协作包 0.1.4 需要基础 SDK `^0.1.6`，以支持请求级取消信号；需要 Node.js 20.3+。同时使用框架时，还需满足该框架的版本要求。
 
 本页使用 LangChain，建议 Node.js 22.22+。请额外安装：
 

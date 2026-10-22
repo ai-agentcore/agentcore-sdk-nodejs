@@ -3,6 +3,7 @@ import { ConfigError } from '../errors';
 const transportHeaders = new Set([
   'host', 'content-length', 'connection', 'transfer-encoding', 'upgrade',
   'mcp-session-id', 'mcp-protocol-version', 'last-event-id', 'content-type', 'accept',
+  'x-agentcore-accessor-wat', 'x-agentcore-accessor-jwt', 'x-agentcore-accessor-matrixid',
 ]);
 
 /** Copy fixed headers, rejecting case-insensitive credential/transport conflicts. */

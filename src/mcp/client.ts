@@ -4,6 +4,7 @@ import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import { StdioClientTransport, type StdioServerParameters } from '@modelcontextprotocol/sdk/client/stdio.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { CallToolResultSchema, McpError, ErrorCode, type CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { inspect } from 'node:util';
 import { ConfigError } from '../errors';
 import { nullLogger, type Logger } from '../logging';
@@ -12,12 +13,14 @@ import type { AgentConfig } from '../runtime/config';
 import type { HeadersProvider } from '../model/client';
 import { Tool, type ToolArguments } from '../integrations/common';
 import { mergeMCPHeaders } from './headers';
+import { currentContext } from '../runtime/context';
 
 export interface MCPTimeouts { sessionMs?: number; metadataMs?: number; toolMs?: number; }
 export interface ManagedMCPOptions extends MCPTimeouts { headers?: Readonly<Record<string, string>>; credentialName?: string; }
 export type DirectMCPOptions = ({ url: string; transport?: 'streamable-http' | 'sse'; headersProvider?: HeadersProvider } |
   { transport: 'stdio'; server: StdioServerParameters }) & MCPTimeouts & { logger?: Logger };
-export interface MCPCallOptions { signal?: AbortSignal; }
+export interface MCPCallOptions { signal?: AbortSignal; headers?: Readonly<Record<string, string>>; }
+const callHeaders = new AsyncLocalStorage<Readonly<Record<string, string>>>();
 interface Session {
   client: Client;
   transport: Transport;
@@ -36,6 +39,8 @@ export class MCPClient {
   readonly descriptor?: MCPDescriptor;
   private readonly logger: Logger;
   private state?: Session;
+  private readonly requestClients = new WeakMap<NonNullable<ReturnType<typeof currentContext>>, MCPClient>();
+  private readonly scopedClients = new Set<MCPClient>();
   private opening?: Promise<Session>;
   private closed = false;
   private closing?: Promise<void>;
@@ -58,6 +63,8 @@ export class MCPClient {
     logger?: Logger; credentialHeadersProvider?: () => Promise<Record<string, string>>;
   } = {}): MCPClient {
     const { headers: custom, credentialHeadersProvider, ...connectionOptions } = options;
+    if (Object.keys(config.gatewayHeaders).some((name) => name.toLowerCase().startsWith('x-agentcore-accessor-')))
+      throw new ConfigError('MCP accessor headers must come from the request context');
     const customHeaders = mergeMCPHeaders({}, custom);
     const headers = mergeMCPHeaders(config.gatewayHeaders, custom);
     return new MCPClient({ ...connectionOptions, url: mcpServerURL(config.mcpGatewayUrl, descriptor.mcpServerId), transport: 'streamable-http', headersProvider: async () => {
@@ -73,7 +80,8 @@ export class MCPClient {
       const definitions: Awaited<ReturnType<Client['listTools']>>['tools'] = [];
       let cursor: string | undefined;
       const deadline = AbortSignal.timeout(this.timeouts.metadataMs);
-      const signal = AbortSignal.any([deadline, ...(options.signal ? [options.signal] : [])]);
+      const requestSignal = currentContext(false)?.signal;
+      const signal = AbortSignal.any([deadline, ...(options.signal ? [options.signal] : []), ...(requestSignal ? [requestSignal] : [])]);
       do {
         const result = await session.client.listTools(cursor ? { cursor } : undefined, { signal, timeout: this.timeouts.metadataMs });
         definitions.push(...result.tools); cursor = result.nextCursor;
@@ -81,18 +89,21 @@ export class MCPClient {
       return definitions.map((definition) => new Tool({ name: definition.name, description: definition.description ?? '', parameters: definition.inputSchema,
         invoke: (arguments_) => this.callTool(definition.name, arguments_),
       }));
-    });
+    }, options.headers);
   }
   async tools(options: MCPCallOptions = {}): Promise<Tool[]> { return this.listTools(options); }
   async callTool(name: string, arguments_: ToolArguments, options: MCPCallOptions = {}): Promise<CallToolResult> {
+    const requestSignal = currentContext(false)?.signal;
+    const signal = options.signal && requestSignal ? AbortSignal.any([options.signal, requestSignal]) : options.signal ?? requestSignal;
     return this.withSession('call_tool', (session) => session.client.callTool({ name, arguments: arguments_ }, CallToolResultSchema,
-      { timeout: this.timeouts.toolMs, signal: options.signal }) as Promise<CallToolResult>);
+      { timeout: this.timeouts.toolMs, signal }) as Promise<CallToolResult>, options.headers);
   }
 
   close(): Promise<void> {
     if (this.closing) return this.closing;
     this.closed = true;
     this.closing = (async () => {
+      await Promise.all([...this.scopedClients].map((client) => client.close()));
       if (this.opening && this.state) this.state.abort.abort();
       await this.opening?.catch(() => undefined);
       if (this.state) await this.retire(this.state);
@@ -122,11 +133,16 @@ export class MCPClient {
     let transport: Transport;
     if (this.options.transport === 'stdio') transport = new StdioClientTransport(this.options.server);
     else {
-      const headers = await this.options.headersProvider?.() ?? {};
-      const fetch: typeof globalThis.fetch = (input, init) => globalThis.fetch(input, { ...init, redirect: 'manual', signal: AbortSignal.any([abort.signal, ...(init?.signal ? [init.signal] : [])]) });
+      const options = this.options;
+      const fetch: typeof globalThis.fetch = async (input, init) => {
+        const resolved = mergeMCPHeaders(await options.headersProvider?.() ?? {}, callHeaders.getStore());
+        const headers = new Headers(init?.headers);
+        for (const [name, value] of Object.entries(resolved)) headers.set(name, value);
+        return globalThis.fetch(input, { ...init, headers, redirect: 'manual', signal: AbortSignal.any([abort.signal, ...(init?.signal ? [init.signal] : []), ...(init?.method === 'DELETE' ? [AbortSignal.timeout(this.timeouts.sessionMs)] : [])]) });
+      };
       transport = this.options.transport === 'sse'
-        ? new SSEClientTransport(new URL(this.options.url), { requestInit: { headers }, fetch })
-        : new StreamableHTTPClientTransport(new URL(this.options.url), { requestInit: { headers }, fetch });
+        ? new SSEClientTransport(new URL(this.options.url), { fetch })
+        : new StreamableHTTPClientTransport(new URL(this.options.url), { fetch });
     }
     const session: Session = { client, transport, abort, invalid: false, active: new Set() };
     this.state = session;
@@ -148,7 +164,27 @@ export class MCPClient {
     finally { clearTimeout(timer); }
   }
 
-  private async withSession<T>(operation: string, call: (session: Session) => Promise<T>): Promise<T> {
+  private async withSession<T>(operation: string, call: (session: Session) => Promise<T>, headers?: Readonly<Record<string, string>>): Promise<T> {
+    if (headers !== undefined) return callHeaders.run(mergeMCPHeaders({}, headers), () => this.withSession(operation, call));
+    if (this.closed) throw new Error('MCP client is closed');
+    const context = currentContext(false);
+    const wat = context?.headers['x-agentcore-accessor-wat'];
+    if (this.descriptor && wat && context && this.options.transport !== 'stdio') {
+      let scoped = this.requestClients.get(context);
+      if (!scoped) {
+        const options = this.options;
+        scoped = MCPClient.direct({ ...options, headersProvider: async () => ({
+          ...await options.headersProvider?.(), 'x-agentcore-accessor-wat': wat,
+        }) });
+        this.requestClients.set(context, scoped);
+        this.scopedClients.add(scoped);
+        const child = scoped;
+        context.onClose(async () => {
+          try { await child.close(); } finally { this.scopedClients.delete(child); }
+        });
+      }
+      return scoped.withSession(operation, call);
+    }
     const session = await this.acquire();
     if (this.closed) throw new Error('MCP client is closed');
     const request = call(session); session.active.add(request);
@@ -165,6 +201,10 @@ export class MCPClient {
     session.invalid = true;
     session.closing = (async () => {
       await Promise.allSettled([...session.active]);
+      try {
+        if (session.transport instanceof StreamableHTTPClientTransport && session.transport.sessionId)
+          await session.transport.terminateSession();
+      } catch { /* Closing the transport below still revokes the local Session. */ }
       session.abort.abort();
       try { await session.client.close(); }
       catch (error) { this.logger.warn('agentcore.mcp.session.close.failed', { errorType: error instanceof Error ? error.name : 'unknown', url: this.safeURL }); }

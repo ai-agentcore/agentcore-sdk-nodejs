@@ -1,6 +1,6 @@
 {
   "name": "alibabacloud-agentcore-sdk",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "AgentCore runtime SDK for Node.js",
   "license": "Apache-2.0",
   "repository": {

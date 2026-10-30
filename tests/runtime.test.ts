@@ -120,3 +120,33 @@ it('isolates concurrent request headers without assigning special session semant
   expect(currentContext(false)).toBeUndefined();
   expect(inspect(new RequestContext({ authorization: 'secret' }))).not.toContain('secret');
 });
+
+it.each(['sync', 'async'])('waits for all request cleanups after a %s failure', async failure => {
+  const context = new RequestContext({});
+  const error = new Error('cleanup failed');
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  let started = false; let cleaned = 0; let settled = false;
+  context.onClose(() => { if (failure === 'sync') throw error; return Promise.reject(error); });
+  context.onClose(async () => { started = true; await gate; cleaned++; });
+  const closing = context.close();
+  const rejected = expect(closing).rejects.toBe(error);
+  void closing.then(() => { settled = true; }, () => { settled = true; });
+  try {
+    await new Promise<void>(resolve => setImmediate(resolve));
+    expect(started).toBe(true);
+    expect(settled).toBe(false);
+  } finally { release(); await rejected; }
+  expect(cleaned).toBe(1);
+  await context.close();
+  expect(cleaned).toBe(1);
+});
+
+it('runs all failing request cleanups and preserves the first error', async () => {
+  const context = new RequestContext({});
+  const errors = [new Error('first'), new Error('second')];
+  const cleaned: number[] = [];
+  for (const [index, error] of errors.entries()) context.onClose(async () => { cleaned.push(index); throw error; });
+  await expect(context.close()).rejects.toBe(errors[0]);
+  expect(cleaned).toEqual([0, 1]);
+});

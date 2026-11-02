@@ -14,6 +14,7 @@ import { requiredString, type AgentConfig } from './runtime/config';
 import type { ManagedRuntimeOptions, RuntimeBindings, RuntimeSource } from './runtime/managed';
 import { Skills } from './skill/loader';
 import { Templates } from './templates';
+import { ResourceDefaults } from './resource-defaults';
 import { BoundCredentials } from './auth/bound-credentials';
 import { MemoryStore } from './memory/client';
 import { CollaborationClient } from './collaboration/client';
@@ -39,6 +40,7 @@ export class AgentCore {
   readonly skills: Skills;
   readonly templates: Templates;
   readonly credentials: BoundCredentials;
+  private readonly resourceDefaults = new ResourceDefaults();
   private readonly runtimeSource?: RuntimeSource;
   private runtime?: RuntimeBindings;
   private context?: ResourceContext;
@@ -93,8 +95,11 @@ export class AgentCore {
     } });
   }
 
-  async model(resourceName: string, options: { model?: string; timeoutMs?: number } = {}): Promise<ModelClient> {
+  async model(resourceName?: string, options: { model?: string; timeoutMs?: number } = {}): Promise<ModelClient> {
     this.ensureOpen();
+    const selected = this.resourceDefaults.model(resourceName, options.model);
+    resourceName = selected.name;
+    options = { ...options, model: selected.model };
     const runtime = await this.ensureRuntime();
     const control = this.requireControlPlane();
     const key = JSON.stringify([resourceName, options.model, options.timeoutMs]);
@@ -142,6 +147,12 @@ export class AgentCore {
     })();
     this.mcps.set(key, request);
     try { return await request; } catch (error) { this.mcps.delete(key); throw error; }
+  }
+  async mcpsFromEnv(): Promise<MCPClient[]> {
+    this.ensureOpen();
+    const clients: MCPClient[] = [];
+    for (const name of this.resourceDefaults.mcpNames()) clients.push(await this.mcp(name));
+    return clients;
   }
   directMCP(options: DirectMCPOptions): MCPClient {
     this.ensureOpen();

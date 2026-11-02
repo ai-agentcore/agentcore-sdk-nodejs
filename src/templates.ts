@@ -3,6 +3,7 @@ import { join, resolve } from 'node:path';
 import type { TemplateArtifact } from './controlplane/client';
 import { ConfigError } from './errors';
 import { nullLogger, type Logger } from './logging';
+import { ResourceDefaults } from './resource-defaults';
 import { materializeTemplateSkill, unpackArchive, type Skill, type Skills } from './skill/loader';
 
 interface TemplateProvider {
@@ -33,12 +34,16 @@ export class AgentTemplate {
 }
 
 export class Templates {
+  private readonly resourceDefaults = new ResourceDefaults();
   private readonly workspace: string;
   constructor(private readonly runtime: Runtime, private readonly skills: Skills,
     workspaceDir?: string, private readonly logger: Logger = nullLogger) {
     this.workspace = resolve(workspaceDir ?? process.env.AGENTCORE_SKILL_WORKSPACE_DIR ?? '.skills/.agentcore-managed', '.templates');
   }
-  async get(name: string, options: { version?: string } = {}): Promise<AgentTemplate> {
+  async get(name?: string, options: { version?: string } = {}): Promise<AgentTemplate> {
+    const selected = this.resourceDefaults.agentSpec(name, options.version);
+    name = selected.name;
+    options = { version: selected.version };
     component(name); if (options.version !== undefined) component(options.version);
     const { provider, workspaceId } = await this.runtime(); component(workspaceId);
     this.logger.info('agentcore.template.get.started', { name, version: options.version ?? 'latest' });

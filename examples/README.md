@@ -19,6 +19,10 @@
 
 框架示例需要模型支持工具调用。请根据 MCP 和 Skill 的用途调整示例中的问题。Memory 示例会写入数据，建议使用专门的测试记忆空间。
 
+## 环境变量资源选择
+
+先按 SDK 首页配置环境变量，再运行 `npx tsx examples/environment-resources.ts`。示例加载默认模型、AgentSpec，以及 MCP／Skill 列表；仅运行 MCP 工具发现，不执行 MCP 工具。代码见 [environment-resources.ts](environment-resources.ts)。
+
 ## 选择示例
 
 从仓库根目录运行：

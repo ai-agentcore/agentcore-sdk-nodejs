@@ -6,6 +6,7 @@ import { parseDocument } from 'yaml';
 import type { SkillArtifact } from '../controlplane/client';
 import { ConfigError, ResourceNotConfiguredError } from '../errors';
 import { nullLogger, type Logger } from '../logging';
+import { ResourceDefaults } from '../resource-defaults';
 
 const MAX_BYTES = 10 * 1024 * 1024;
 const METADATA = '.agentcore-skill.json';
@@ -29,6 +30,7 @@ export interface SkillsOptions {
 }
 
 export class Skills {
+  private readonly resourceDefaults = new ResourceDefaults();
   private readonly pins = new Map<string, Promise<Skill>>();
   private readonly workspace: string;
   private readonly logger: Logger;
@@ -52,6 +54,12 @@ export class Skills {
       }
       this.logger.info('agentcore.skill.local.load.succeeded', { root, skill_count: result.length }); return result;
     } catch (error) { this.logger.warn('agentcore.skill.local.load.failed', { root, error_type: error instanceof Error ? error.name : 'Error' }); throw error; }
+  }
+  async fromEnv(): Promise<Skill[]> {
+    const skills: Skill[] = [];
+    for (const { name, version } of this.resourceDefaults.skills())
+      skills.push(await this.managed(name, { version }));
+    return skills;
   }
   async managed(name: string, options: { version?: string } = {}): Promise<Skill> {
     if (!this.options.runtime) throw new ResourceNotConfiguredError('managed Skill runtime is not configured');

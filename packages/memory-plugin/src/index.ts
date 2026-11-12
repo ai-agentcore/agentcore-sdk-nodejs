@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { contextEventFromSource, type ContextMemoryClient, type ContextMemorySearchHit,
+  type ContextMemorySearchOptions, type EventReceipt, type MemoryCallOptions, type MemoryScope } from "alibabacloud-agentcore-sdk";
 
 const identifier = z
   .string()
@@ -11,7 +13,7 @@ const identifier = z
 const bindingSchema = z
   .object({
     memoryStoreName: identifier,
-    userId: identifier,
+    userId: identifier.optional(),
     agentId: identifier,
     teamId: identifier.optional(),
   })
@@ -90,7 +92,7 @@ const memorySchema = z.object({
   id: text,
   text: z.string(),
   scope: z.object({
-    userId: text,
+    userId: text.optional(),
     agentId: text,
     teamId: text.optional(),
     sessionId: text.optional(),
@@ -312,6 +314,10 @@ export class MemoryPlugin {
     this.#transport = new GatewayTransport(options);
   }
 
+  static fromNative(client: ContextMemoryClient, options: NativeMemoryPluginOptions = {}): NativeMemoryPlugin {
+    return new NativeMemoryPlugin(client, options);
+  }
+
   static fromEnvironment(
     options: Pick<
       MemoryPluginOptions,
@@ -374,7 +380,7 @@ class BoundSession implements MemorySession {
     return {
       binding: {
         memory_id: b.memoryStoreName,
-        user_id: b.userId,
+        ...(b.userId !== undefined ? { user_id: b.userId } : {}),
         agent_id: b.agentId,
         ...(b.teamId !== undefined ? { team_id: b.teamId } : {}),
       },
@@ -446,9 +452,9 @@ class BoundSession implements MemorySession {
     const b = this.#binding;
     for (const memory of parsed.data.memories) {
       if (
-        memory.scope.userId !== b.userId ||
+        (b.userId !== undefined && memory.scope.userId !== b.userId) ||
         memory.scope.agentId !== b.agentId ||
-        memory.scope.teamId !== b.teamId ||
+        (b.teamId !== undefined && memory.scope.teamId !== b.teamId) ||
         (mode === "session" && memory.scope.sessionId !== this.#sessionId)
       ) {
         throw new MemoryPluginError("search_scope_mismatch");
@@ -481,5 +487,82 @@ class BoundSession implements MemorySession {
       context: rendered.length ? reference + JSON.stringify(rendered) : "",
       memories,
     };
+  }
+}
+
+export interface NativeMemoryPluginOptions {
+  readonly environment?: Readonly<Record<string, string | undefined>>;
+  readonly timeoutMs?: number;
+}
+export type NativeCaptureReceipt = Readonly<{ sourceId: string; requestId?: string }> & (
+  Omit<Extract<EventReceipt, { kind: "stored" }>, "kind"> & Readonly<{ state: "stored" }>
+  | Omit<Extract<EventReceipt, { kind: "other" }>, "kind"> & Readonly<{ state: "failed" | "unknown" }>
+);
+export interface NativeCaptureResult { readonly receipts: readonly NativeCaptureReceipt[]; readonly requestId?: string; }
+export interface NativeRecallResult { readonly context: string; readonly memories: readonly ContextMemorySearchHit[]; readonly requestId?: string; }
+export interface NativeRecallOptions extends ContextMemorySearchOptions, MemoryCallOptions { readonly maxChars?: number; }
+
+/** Native adapter. The injected core client and its credentials remain caller-owned. */
+export class NativeMemoryPlugin {
+  readonly #client: ContextMemoryClient;
+  readonly #policy: PluginEnvironment;
+  readonly #timeoutMs: number;
+  constructor(client: ContextMemoryClient, options: NativeMemoryPluginOptions = {}) {
+    this.#client = client;
+    this.#policy = parseEnvironment(options.environment ?? process.env);
+    this.#timeoutMs = optionsSchema.parse({ timeoutMs: options.timeoutMs }).timeoutMs;
+  }
+  #enabled(capture: boolean): boolean {
+    return this.#policy.enabled && this.#policy.stores.has(this.#client.memoryStoreName)
+      && (!capture || this.#policy.stores.get(this.#client.memoryStoreName) === true);
+  }
+
+  async capture(records: readonly SourceRecord[], options: MemoryCallOptions & { readonly scope?: MemoryScope } = {}): Promise<NativeCaptureResult> {
+    if (!this.#enabled(true)) return Object.freeze({ receipts: Object.freeze([]) });
+    if (!Array.isArray(records) || records.length < 1 || records.length > 100) throw new Error("invalid_capture_batch");
+    const seen = new Set<string>();
+    const sourceIds = new Map<number, string>();
+    const events = records.map((record, index) => {
+      if (typeof record.sourceId !== "string" || !record.sourceId.trim() || Buffer.byteLength(record.sourceId) > 512) throw new Error("invalid_source_id");
+      if (seen.has(record.sourceId)) throw new Error("duplicate_source_id");
+      seen.add(record.sourceId); sourceIds.set(index, record.sourceId);
+      const event = contextEventFromSource(record.event);
+      if (Buffer.byteLength(JSON.stringify(event)) > 900000) throw new Error("event_too_large");
+      return event;
+    });
+    if (Buffer.byteLength(JSON.stringify({ scope: options.scope, events })) > 1024 * 1024) throw new Error("request_too_large");
+    const result = await this.#client.createEvents(events, { ...options, timeoutMs: options.timeoutMs ?? this.#timeoutMs });
+    const request = result.requestId === undefined ? {} : { requestId: result.requestId };
+    const receipts = result.results.map(receipt => {
+      const sourceId = sourceIds.get(receipt.inputIndex);
+      if (sourceId === undefined) throw new MemoryPluginError("invalid_capture_receipts", true, result.requestId);
+      if (receipt.kind === "stored") {
+        const { kind, ...fields } = receipt;
+        return Object.freeze({ ...fields, sourceId, state: "stored", ...request } satisfies NativeCaptureReceipt);
+      }
+      const { kind, ...fields } = receipt;
+      const state = ["FAILED", "REJECTED"].includes(receipt.status) ? "failed" : "unknown";
+      return Object.freeze({ ...fields, sourceId, state, ...request } satisfies NativeCaptureReceipt);
+    });
+    return Object.freeze({ receipts: Object.freeze(receipts), ...request });
+  }
+
+  async recall(query: string, options: NativeRecallOptions = {}): Promise<NativeRecallResult> {
+    if (!this.#enabled(false)) return Object.freeze({ context: "", memories: Object.freeze([]) });
+    const maxChars = z.number().int().min(256).max(16000).default(3600).parse(options.maxChars);
+    const result = await this.#client.searchMemories(query, { ...options, timeoutMs: options.timeoutMs ?? this.#timeoutMs });
+    const rendered: { id: string; text: string; type?: string; source?: string }[] = [];
+    for (const hit of result.memories) {
+      let value = Array.from(hit.memory.content.text).slice(0, maxChars);
+      while (value.length) {
+        const candidate = { id: hit.memory.memoryId, text: value.join(""),
+          ...(hit.memory.type !== undefined ? { type: hit.memory.type } : {}),
+          ...(hit.memory.source !== undefined ? { source: hit.memory.source } : {}) };
+        const size = chars(reference + JSON.stringify([...rendered, candidate]));
+        if (size <= maxChars) { rendered.push(candidate); break; }
+        value = value.slice(0, Math.max(0, value.length - (size - maxChars)));
+      }
+    }
+    return Object.freeze({ ...result, context: rendered.length ? reference + JSON.stringify(rendered) : "" });
   }
 }

@@ -12,7 +12,8 @@
 | 在部署时选择模型、模版、MCP 和 Skill | [环境变量配置](#通过环境变量选择资源) |
 | 使用自己的模型、MCP 或本地 Skill | [自定义资源](#使用自定义资源) |
 | 为 Agent 添加长期记忆 | [Memory](#使用-memory) |
-| 为自有 harness 显式采集事件和召回 | [可选 Memory 插件首稿](packages/memory-plugin/README.md) |
+| 原生 Context 事件、分页与完整记忆检索 | [Native Context Memory](docs/context-memory.md) |
+| 为自有 harness 显式采集事件和召回 | [可选 Memory 插件](packages/memory-plugin/README.md) |
 | 配置 MCP 凭证与固定 Header | [凭证与 Header](#凭证与-mcp-header) |
 | 接入已有 Agent 框架 | [框架集成](#框架集成) |
 | 将 Agent 发布为 HTTP 服务 | [服务协议](#提供-agent-服务) |
@@ -168,6 +169,8 @@ try {
 只需配置实际使用的资源。SDK 不自动加载这些资源，也不自动将 AgentSpec 内的 Skill 与环境变量 Skill 合并。同一个已初始化客户端不会随环境变量变化自动切换资源；修改后请重新创建客户端或重新部署。认证与访问权限的配置方式不变。
 
 ## 使用 Memory
+
+SDK 0.1.9 新增原生 `core.contextMemory(name)`，提供 CreateEvents、分页 ListEvents 和包含类型、来源等信息的 SearchMemories。它使用 `context` 凭据及独立 Memory endpoint，支持四维可选 scope。用法、错误与取消边界见 [Native Context Memory](docs/context-memory.md)。下文 `memoryStore()` 的提取和 CRUD 行为保持兼容。
 
 Memory 用于保存和检索长期记忆，也支持查询、更新、删除记忆以及查看会话消息。使用前，在 AgentCore 中创建 MemoryStore 并授予应用访问权限。
 

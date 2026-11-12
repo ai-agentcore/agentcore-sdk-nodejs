@@ -7,3 +7,8 @@ export type { ToolArguments, ToolOptions } from './integrations/common';
 export type { Logger, LogFields } from './logging';
 export { AccessKeyCredential } from './auth/access-key';
 export { RequestContext, currentContext, useContext } from './runtime/context';
+export { ContextMemoryClient } from './memory/context-client';
+export { ContextEvent, contextEventFromSource } from './memory/source-events';
+export { MemoryType } from './memory/context-models';
+export type * from './memory/context-models';
+export type { MemoryScope } from './memory/models';

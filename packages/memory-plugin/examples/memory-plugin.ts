@@ -1,35 +1,21 @@
-import {
-  MemoryPlugin,
-  type MemoryBinding,
-  type SourceRecord,
-} from "../src/index";
+import { MemoryPlugin, type SourceRecord } from '../src/index';
+import type { ContextMemoryClient, MemoryScope } from 'alibabacloud-agentcore-sdk';
 
 /** Identity comes from the authenticated application; records come from its durable transcript. */
 export async function processTurn(options: {
-  endpoint: string;
-  tokenProvider: () => string | Promise<string>;
-  binding: MemoryBinding;
-  sessionId: string;
+  memory: ContextMemoryClient;
+  scope: MemoryScope;
   query: string;
   persistedRecords: readonly SourceRecord[];
   environment?: Readonly<Record<string, string | undefined>>;
   signal?: AbortSignal;
 }) {
-  const plugin = MemoryPlugin.fromEnvironment(
-    {
-      endpoint: options.endpoint,
-      tokenProvider: options.tokenProvider,
-    },
-    options.environment,
-  );
-  const session = plugin.session(options.binding, options.sessionId);
-  const recalled = await session.recall(options.query, {
+  const plugin = MemoryPlugin.fromNative(options.memory, { environment: options.environment });
+  const recalled = await plugin.recall(options.query, {
+    scope: options.scope,
     signal: options.signal,
   });
   // Supply recalled.context to the business framework as reference data.
-  const receipts = await session.capture(
-    options.persistedRecords,
-    options.signal,
-  );
-  return { recalled, receipts };
+  const captured = await plugin.capture(options.persistedRecords, { scope: options.scope, signal: options.signal });
+  return { recalled, captured };
 }

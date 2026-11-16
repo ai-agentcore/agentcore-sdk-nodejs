@@ -17,7 +17,7 @@ import { model, tools, skillTools, AgentCoreMemoryProcessor } from 'alibabacloud
 
 const core = AgentCore.auto();
 try {
-  const memory = new AgentCoreMemoryProcessor(core.memoryStore('test-memory'), {
+  const memory = new AgentCoreMemoryProcessor(core.contextMemory('test-memory'), {
     scopeResolver: context => ({
       read: { agentId: context!.get('user') as string },
       write: { agentId: context!.get('user') as string, sessionId: context!.get('session') as string },

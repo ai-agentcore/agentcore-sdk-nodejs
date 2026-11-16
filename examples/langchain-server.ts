@@ -14,7 +14,7 @@ async function createApplicationAgent() {
   return createAgent({
     model: await model(client),
     tools: [...tools(await mcp.listTools()), ...skillTools([skill])],
-    middleware: [agentCoreMemoryMiddleware(core.memoryStore('test-memory'), {
+    middleware: [agentCoreMemoryMiddleware(core.contextMemory('test-memory'), {
       contextSchema: z.object({ sessionId: z.string() }),
       scopeResolver: ({ sessionId }) => ({ read: { agentId: 'langchain-example' }, write: { agentId: 'langchain-example', sessionId } }),
       writeBack: true,

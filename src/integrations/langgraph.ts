@@ -1,6 +1,6 @@
 import { SystemMessage, type BaseMessage } from '@langchain/core/messages';
 import { MemoryValidationError } from '../errors';
-import type { MemoryStore, MemoryScope, MemoryMessage } from '../memory';
+import type { ContextMemoryClient, MemoryStore, MemoryScope, MemoryMessage } from '../memory';
 import type { Logger } from '../logging';
 import { recallMemory, recordMemory, referenceText, validateTopK } from './memory/common';
 export { model, tools, skillTools } from './langchain-adapter';
@@ -17,8 +17,8 @@ export interface MemoryNodeState {
 /** Explicit graph nodes: the application owns state, turn boundaries and edges. */
 export class AgentCoreMemoryNodes {
   private readonly topK: number;
-  constructor(private readonly store: MemoryStore, private readonly options: { topK?: number; logger?: Logger } = {}) {
-    this.topK = options.topK ?? 5; validateTopK(this.topK);
+  constructor(private readonly store: MemoryStore | ContextMemoryClient, private readonly options: { topK?: number; logger?: Logger } = {}) {
+    this.topK = options.topK ?? 5; validateTopK(this.topK, store);
   }
   async recall(state: MemoryNodeState): Promise<{ memoryText: string }> {
     if (state.memoryQuery === undefined) throw new MemoryValidationError('memoryQuery is required');

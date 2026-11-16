@@ -1,10 +1,11 @@
+import { MemoryValidationError } from '../errors';
 import { BaseTool, isFinalResponse, type BaseLlm, type BaseMemoryService, type Event,
   type RunAsyncToolRequest, type SearchMemoryRequest, type SearchMemoryResponse, type Session } from '@google/adk';
 import type { ModelClient, ProviderModelClient } from '../model';
-import type { MemoryStore, MemoryMessage } from '../memory';
+import { ContextMemoryClient, ContextEvent, type MemoryStore, type MemoryMessage } from '../memory';
 import type { Tool } from './common';
 import { skillTools as canonicalSkillTools, type Skill, type SkillToolsOptions } from '../skill';
-import { validateScope, validateTopK } from './memory/common';
+import { recordEvents, validateScope, validateTopK } from './memory/common';
 
 /** Load model-provider dependencies only when a model is requested. */
 export async function model(client: ModelClient | ProviderModelClient): Promise<BaseLlm> {
@@ -40,8 +41,8 @@ export interface AddEventsToMemoryRequest {
 /** Borrows the MemoryStore; ADK's SessionService continues to own conversation history. */
 export class AgentCoreMemoryService implements BaseMemoryService {
   private readonly topK: number;
-  constructor(private readonly store: MemoryStore, private readonly options: AgentCoreMemoryServiceOptions) {
-    this.topK = options.topK ?? 5; validateTopK(this.topK);
+  constructor(private readonly store: MemoryStore | ContextMemoryClient, private readonly options: AgentCoreMemoryServiceOptions) {
+    this.topK = options.topK ?? 5; validateTopK(this.topK, store);
   }
   async searchMemory({ appName, userId, query }: SearchMemoryRequest): Promise<SearchMemoryResponse> {
     const scope = { agentId: this.options.partitionResolver(appName, userId) }; validateScope(scope);
@@ -54,13 +55,25 @@ export class AgentCoreMemoryService implements BaseMemoryService {
   /** Explicit delta ingestion, avoiding repeated ingestion of the entire Session. */
   async addEventsToMemory(request: AddEventsToMemoryRequest): Promise<void> {
     const scope = { agentId: this.options.partitionResolver(request.appName, request.userId), sessionId: request.sessionId }; validateScope(scope);
+    if (this.store instanceof ContextMemoryClient && request.customMetadata !== undefined)
+      throw new MemoryValidationError('Context Memory event writes do not support customMetadata');
     const messages: MemoryMessage[] = [];
+    const events: ContextEvent[] = [];
     for (const event of request.events) {
       if (!event.content || event.partial || event.errorCode) continue;
       const role = event.author === 'user' ? 'user' : event.content.role === 'model' && isFinalResponse(event) ? 'assistant' : undefined;
       if (!role) continue;
       const content = (event.content.parts ?? []).filter(part => part.text && !part.thought).map(part => part.text!).join('\n');
-      if (content.trim()) messages.push({ role, content });
+      if (!content.trim()) continue;
+      if (this.store instanceof ContextMemoryClient) events.push(ContextEvent.typed({
+        type: 'message', timestamp: event.timestamp,
+        data: { role, content: [{ type: 'text', text: content }] },
+      }));
+      else messages.push({ role, content });
+    }
+    if (this.store instanceof ContextMemoryClient) {
+      await recordEvents(this.store, events, scope);
+      return;
     }
     if (messages.length) await this.store.addMemories({ scope, messages, metadata: request.customMetadata, sync: false });
   }

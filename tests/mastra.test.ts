@@ -20,7 +20,8 @@ async function setup(options: { memoryStatus?: number; modelStatus?: number; fin
       requests.push({ action, body });
       res.statusCode = options.memoryStatus ?? 200;
       res.end(res.statusCode !== 200 ? '{"Code":"Forbidden","RequestId":"memory-test"}' : JSON.stringify(action === 'SearchMemories'
-        ? { success: true, data: { memories: [{ memory: { memoryId: 'm', content: { text: `Likes coffee: ${body.scope.agentId}` }, scope: {} }, score: 1, similarity: 1 }] } }
+        ? { success: true, data: { memories: [{ memory: { memoryId: 'm', content: { text: `Likes coffee: ${body.scope.agentId}` }, scope: body.scope }, score: 1, similarity: 1 }] } }
+        : action === 'CreateEvents' ? { success: true, data: { results: body.events.map((_: unknown, inputIndex: number) => ({ inputIndex, status: 'STORED', eventId: `e${inputIndex}` })) } }
         : { success: true, data: { taskId: 'task-1' } })); return;
     }
     const input = JSON.parse(raw); inputs.push(input);
@@ -45,7 +46,7 @@ async function setup(options: { memoryStatus?: number; modelStatus?: number; fin
   const client = core.directModel({ model: 'm', baseURL: endpoint.url + '/v1', apiKey: 'test-key' });
   const canonical = new Tool({ name: 'lookup', description: 'Look up a city', parameters: { type: 'object', properties: { city: { type: 'string' } }, required: ['city'] },
     invoke: args => { expect(args).toEqual({ city: '杭州' }); toolCalls++; return { text: 'Private tool output' }; } });
-  return { core, client, requests, inputs, canonical, toolCalls: () => toolCalls };
+  return { core, client, context: core.contextMemory("mem", { endpoint: endpoint.url }), requests, inputs, canonical, toolCalls: () => toolCalls };
 }
 const scopes = { read: { agentId: 'agent' }, write: { agentId: 'agent', sessionId: 'session' } };
 
@@ -59,18 +60,23 @@ it('preserves a user-only scope in Mastra recall and write-back', async () => {
   expect(env.requests.map(r => r.body.scope)).toEqual([scope, scope]);
 });
 
-it.each(['generate', 'stream'] as const)('runs Mastra %s through a native tool loop and writes only the current turn', async mode => {
+it.each((['generate', 'stream'] as const).flatMap(mode => [false, true].map(native => ({ mode, native }))))('runs Mastra $mode through tools (Context=$native)', async ({ mode, native }) => {
   const env = await setup({ toolLoop: true });
-  const memory = new AgentCoreMemoryProcessor(env.core.memoryStore('mem'), { scopeResolver: () => scopes, writeBack: true });
+  const memory = new AgentCoreMemoryProcessor(native ? env.context : env.core.memoryStore('mem'), { scopeResolver: () => scopes, writeBack: true });
   const agent = new Agent({ id: 'agent', name: 'agent', instructions: 'Original instruction', model: await model(env.client),
     tools: tools([env.canonical]), inputProcessors: [memory], outputProcessors: [memory] });
   const messages = [{ role: 'user' as const, content: 'Old question' }, { role: 'assistant' as const, content: 'Old answer' }, { role: 'user' as const, content: 'Drink?' }];
   const result = mode === 'generate' ? await agent.generate(messages, { maxSteps: 4, modelSettings: { maxRetries: 0 } })
     : await (await agent.stream(messages, { maxSteps: 4, modelSettings: { maxRetries: 0 } })).getFullOutput();
   expect(result.text).toContain('Try coffee.'); expect(env.toolCalls()).toBe(1); expect(env.inputs).toHaveLength(2);
-  expect(env.requests.map(r => r.action)).toEqual(['SearchMemories', 'AddMemories']);
+  expect(env.requests.map(r => r.action)).toEqual(['SearchMemories', native ? 'CreateEvents' : 'AddMemories']);
   expect(env.requests[0]!.body.query).toBe('Drink?');
-  expect(env.requests[1]!.body).toEqual({ sync: false, scope: scopes.write, messages: [{ role: 'user', content: 'Drink?' }, { role: 'assistant', content: 'Try coffee.' }] });
+  if (native) {
+    expect(env.requests[1]!.body.scope).toEqual(scopes.write);
+    expect(env.requests[1]!.body.events.map((e: any) => e.data)).toEqual([
+      { role: 'user', content: [{ type: 'text', text: 'Drink?' }] }, { role: 'assistant', content: [{ type: 'text', text: 'Try coffee.' }] },
+    ]);
+  } else expect(env.requests[1]!.body).toEqual({ sync: false, scope: scopes.write, messages: [{ role: 'user', content: 'Drink?' }, { role: 'assistant', content: 'Try coffee.' }] });
   for (const input of env.inputs) { expect(JSON.stringify(input.messages)).toContain('Likes coffee: agent'); expect(JSON.stringify(input.messages)).toContain('Original instruction'); }
   expect(JSON.stringify(result.response.messages)).not.toContain('Likes coffee: agent');
 });

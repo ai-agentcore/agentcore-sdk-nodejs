@@ -9,7 +9,7 @@ import { httpServer } from './helpers';
 const cores: AgentCore[] = []; const servers: Array<Awaited<ReturnType<typeof httpServer>>> = [];
 afterEach(async () => { await Promise.all(cores.splice(0).map((c) => c.close())); await Promise.all(servers.splice(0).map((s) => s.close())); });
 
-it('runs a real LangGraph recall → model → record flow without persisting injected memory', async () => {
+it.each([false, true])('runs a real LangGraph recall → model → record flow (Context=%s)', async native => {
   const writes: unknown[] = []; let modelCalls = 0; let searchCalls = 0;
   const endpoint = await httpServer(async (req, res) => {
     let raw = ''; for await (const chunk of req) raw += chunk;
@@ -17,7 +17,10 @@ it('runs a real LangGraph recall → model → record flow without persisting in
     if (req.headers['x-acs-action'] === 'SearchMemories') {
       searchCalls++; const request = JSON.parse(new URLSearchParams(raw).get('body')!);
       expect(request.scope).toEqual({ agentId: 'agent-1' }); expect(request.topK).toBe(5);
-      res.end(JSON.stringify({ success: true, data: { memories: [{ memory: { memoryId: 'm', content: { text: 'User likes coffee' }, scope: {} }, score: 1, similarity: 1 }] } }));
+      res.end(JSON.stringify({ success: true, data: { memories: [{ memory: { memoryId: 'm', content: { text: 'User likes coffee' }, scope: request.scope }, score: 1, similarity: 1 }] } }));
+    } else if (req.headers['x-acs-action'] === 'CreateEvents') {
+      const body = JSON.parse(new URLSearchParams(raw).get('body')!); writes.push(body);
+      res.end(JSON.stringify({ success: true, data: { results: body.events.map((_: unknown, inputIndex: number) => ({ inputIndex, status: 'STORED', eventId: `e${inputIndex}` })) } }));
     } else if (req.headers['x-acs-action'] === 'AddMemories') {
       writes.push(JSON.parse(new URLSearchParams(raw).get('body')!)); res.end('{"success":true,"data":{"taskId":"task-1"}}');
     } else {
@@ -27,7 +30,7 @@ it('runs a real LangGraph recall → model → record flow without persisting in
     }
   }); servers.push(endpoint);
   const core = new AgentCore({ workspaceId: 'ws', regionId: 'cn-hangzhou', controlPlaneEndpoint: endpoint.url, accessKeyCredential: new AccessKeyCredential({ accessKeyId: 'test-ak', accessKeySecret: 'test-sk' }) }); cores.push(core);
-  const nodes = new AgentCoreMemoryNodes(core.memoryStore('mem'));
+  const nodes = new AgentCoreMemoryNodes(native ? core.contextMemory('mem', { endpoint: endpoint.url }) : core.memoryStore('mem'));
   const model = core.directModel({ model: 'custom', baseURL: endpoint.url, apiKey: 'consumer-test' });
   const state = Annotation.Root({ memoryQuery: Annotation<string>(), memoryReadScope: Annotation<MemoryScope>(), memoryWriteScope: Annotation<MemoryScope>(),
     memoryMessages: Annotation<MemoryMessage[]>(), memoryText: Annotation<string>(), reply: Annotation<string>() });
@@ -43,6 +46,14 @@ it('runs a real LangGraph recall → model → record flow without persisting in
     .addEdge(START, 'recall').addEdge('recall', 'answer').addEdge('answer', 'record').addEdge('record', END).compile();
   const result = await graph.invoke({ memoryQuery: 'What should I drink?', memoryReadScope: { agentId: 'agent-1' }, memoryWriteScope: { agentId: 'agent-1', sessionId: 'session-1' } });
   expect(result.reply).toBe('Try coffee.'); expect(result.memoryMessages).toEqual([]); expect(modelCalls).toBe(1); expect(searchCalls).toBe(1);
+  if (native) {
+    expect(writes).toHaveLength(1);
+    expect(writes[0]).toMatchObject({ scope: { agentId: 'agent-1', sessionId: 'session-1' }, events: [
+      { type: 'message', data: { role: 'user', content: [{ type: 'text', text: 'What should I drink?' }] } },
+      { type: 'message', data: { role: 'assistant', content: [{ type: 'text', text: 'Try coffee.' }] } },
+    ] });
+    return;
+  }
   expect(writes).toEqual([{ scope: { agentId: 'agent-1', sessionId: 'session-1' }, messages: [{ role: 'user', content: 'What should I drink?' }, { role: 'assistant', content: 'Try coffee.' }], sync: false }]);
 });
 

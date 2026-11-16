@@ -107,10 +107,16 @@ const skill = await core.skills.managed('test-skill', '1.0.0');
 
 运行基础示例：`npx tsx examples/memory.ts`。它演示 `test-memory` 的写入、任务查询与检索。写入后通过任务 ID 查询进度；如需等待提取完成，传入 `sync: true`。分区和会话参数见 [Memory 快速开始](../README.md#使用-memory)。新记忆可能需要一定时间才能检索到。
 
-框架接入见 LangChain、ADK 和 Mastra 示例。应用从可信业务上下文指定 `userId`、`agentId` 或 `sessionId`；框架读写范围均须显式提供至少一个字段，它们不是访问凭证。LangChain 和 Mastra 示例开启写回，ADK 示例在完成后保存一次会话。
+框架接入见 LangChain、ADK 和 Mastra 示例。应用从可信业务上下文指定 `userId`、`teamId`、`agentId` 或 `sessionId`；框架读写范围均须显式提供至少一个字段，它们不是访问凭证。LangChain 和 Mastra 示例开启写回，ADK 示例在完成后保存一次会话。
 
 例如 `scopeResolver` 可以返回 `{ read: { userId: 'alice' }, write: { userId: 'alice', sessionId: 'session-1' } }`。
 ADK 通过 `partitionResolver(appName, userId)` 映射到 `agentId`；`addEventsToMemory` 可省略 `sessionId`。
+
+框架示例使用 `core.contextMemory('test-memory')`。开启写回后，将当前用户输入和最终文本答案保存为事件；不会自动保存工具结果、思考过程或重复提交历史。事件保存成功不代表长期记忆已提取完成。
+
+LangGraph 的 `AgentCoreMemoryNodes` 也接受同一个 Context Memory 客户端，由图中的 `recall` 和 `record` 节点控制读写时机。ADK 的 `addSessionToMemory` 保存整个传入会话；持续会话建议用 `addEventsToMemory` 只提交新事件。Context Memory 写入不支持 ADK 的 `customMetadata`。
+
+已有应用仍可传入 `core.memoryStore(name)`，适配器会继续使用 `addMemories({ sync: false })`。两个入口不会互相自动切换。
 
 ## 凭证与 Header
 

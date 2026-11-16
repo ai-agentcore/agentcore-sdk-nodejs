@@ -29,7 +29,14 @@ export class MemoryStore {
     }
     const metadata = validateMetadata(options.metadata);
     return this.transport.request<AddMemoriesResult | AddMemoriesSubmission>('AddMemories', 'POST', '/memories', (body) => {
-      if (!sync) return Object.freeze({ taskId: string(record(body.data).taskId, 'AddMemories', 'data.taskId', true) });
+      if (!sync) {
+        const data = record(body.data);
+        const taskId = string(data.taskId, 'AddMemories', 'data.taskId', true);
+        const taskIds = data.taskIds == null ? undefined : Object.freeze(
+          array(data.taskIds, 'AddMemories', 'data.taskIds').map(id => string(id, 'AddMemories', 'data.taskIds[]', true)),
+        );
+        return Object.freeze({ taskId, ...(taskIds === undefined ? {} : { taskIds }) });
+      }
       return Object.freeze({ memoryIds: memoryIds(record(body.data).memories, 'AddMemories') });
     }, { scope, text, messages, metadata, sync });
   }
@@ -40,17 +47,11 @@ export class MemoryStore {
       const id = string(data.taskId, 'GetMemoryTask', 'data.taskId', true);
       const status = string(data.status, 'GetMemoryTask', 'data.status', true);
       if (!['PENDING', 'RUNNING', 'SUCCEEDED', 'FAILED', 'UNKNOWN'].includes(status)) throw new MemoryContractError('GetMemoryTask', 'data.status is not a public task status');
-      let ids: readonly string[] = Object.freeze([]);
+      const ids = data.memories == null ? Object.freeze([]) : memoryIds(data.memories, 'GetMemoryTask');
       let error: MemoryTask['error'];
-      if (status === 'SUCCEEDED') {
-        if (data.error != null) throw new MemoryContractError('GetMemoryTask', 'successful task contains error');
-        ids = memoryIds(data.memories, 'GetMemoryTask');
-      } else if (status === 'FAILED' || status === 'UNKNOWN') {
-        if (data.memories != null) throw new MemoryContractError('GetMemoryTask', 'failed task contains memories');
+      if (data.error != null) {
         error = Object.freeze({ code: string(record(data.error).code, 'GetMemoryTask', 'data.error.code', true),
           message: string(record(data.error).message, 'GetMemoryTask', 'data.error.message', true) });
-      } else if (data.memories != null || data.error != null) {
-        throw new MemoryContractError('GetMemoryTask', 'non-terminal task contains result fields');
       }
       return Object.freeze({ taskId: id, status: status as MemoryTaskStatus, memoryIds: ids, ...(error ? { error } : {}) });
     });

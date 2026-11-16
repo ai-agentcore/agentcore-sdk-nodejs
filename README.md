@@ -186,8 +186,10 @@ try {
   });
 
   console.log('Memory task:', submission.taskId);
-  const task = await store.getMemoryTask(submission.taskId);
-  console.log('Task status:', task.status);
+  for (const taskId of submission.taskIds ?? [submission.taskId]) {
+    const task = await store.getMemoryTask(taskId);
+    console.log('Memory task:', taskId, task.status, task.memoryIds, task.error);
+  }
 
   // 检索已有记忆；刚提交的任务可能尚未完成。
   const result = await store.searchMemories('用户有哪些回答偏好？', {
@@ -209,7 +211,7 @@ try {
 
 示例会写入真实数据，建议使用测试记忆空间。新写入的记忆可能需要一定时间才能检索到，首次查询可能为空。
 
-`addMemories()` 返回任务 ID，通过 `getMemoryTask(taskId)` 查询处理进度。任务成功后可从 `memoryIds` 读取记忆 ID；失败时可从 `error` 查看原因。
+`addMemories()` 返回任务 ID，通过 `getMemoryTask(taskId)` 查询处理进度。`memoryIds` 包含已生成的记忆，失败时也可能保留部分结果；错误原因可查看 `error`。如果返回了 `taskIds`，需分别查询其中的任务，单个任务完成不代表全部提取完成。
 
 如需等待提取完成并直接读取 `memoryIds`，显式传入 `sync: true`：
 

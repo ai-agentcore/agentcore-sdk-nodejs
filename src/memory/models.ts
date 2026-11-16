@@ -11,7 +11,7 @@ export interface Memory {
 }
 export interface MemorySearchHit { readonly memory: Memory; readonly score: number; readonly similarity: number; }
 export interface AddMemoriesResult { readonly memoryIds: readonly string[]; }
-export interface AddMemoriesSubmission { readonly taskId: string; }
+export interface AddMemoriesSubmission { readonly taskId: string; readonly taskIds?: readonly string[]; }
 export type MemoryTaskStatus = 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'UNKNOWN';
 export interface MemoryTask {
   readonly taskId: string;

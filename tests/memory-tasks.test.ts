@@ -72,7 +72,40 @@ it('keeps a missing task distinct from an unknown write', async () => {
   expect(error).not.toBeInstanceOf(AddMemoriesOutcomeUnknownError);
 });
 
-it.each([{}, { taskId: 't', status: 'SUCCEEDED' }, { taskId: 't', status: 'FAILED' }])('rejects incomplete task results: %j', async data => {
+it.each([{}, { taskId: 't', status: 'RUNNING', memories: {} }, { taskId: 't', status: 'FAILED', memories: [{}] }, { taskId: 't', status: 'FAILED', error: {} }])('rejects incomplete task results: %j', async data => {
   const store = await setup((_req, res) => res.end(JSON.stringify({ success: true, data })));
   await expect(store.getMemoryTask('t')).rejects.toBeInstanceOf(MemoryContractError);
+});
+
+
+it.each(['PENDING', 'RUNNING', 'SUCCEEDED', 'FAILED', 'UNKNOWN'])('accepts optional result fields for %s', async status => {
+  for (const fields of [{}, { memories: [] }]) {
+    const store = await setup((_req, res) => res.end(JSON.stringify({ success: true, data: { taskId: 't', status, ...fields } })));
+    await expect(store.getMemoryTask('t')).resolves.toEqual({ taskId: 't', status, memoryIds: [] });
+  }
+});
+
+it('preserves partial results and the original task error', async () => {
+  const error = { code: 'ExtractionFailed', message: 'partial failure' };
+  const store = await setup((_req, res) => res.end(JSON.stringify({ success: true,
+    data: { taskId: 't', status: 'FAILED', memories: [{ memoryId: 'm' }], error } })));
+  await expect(store.getMemoryTask('t')).resolves.toEqual({ taskId: 't', status: 'FAILED', memoryIds: ['m'], error });
+});
+
+it('preserves all rule task IDs without changing the compatible task ID or polling', async () => {
+  let calls = 0;
+  const store = await setup((_req, res) => { calls++; res.end(JSON.stringify({ success: true,
+    data: { taskId: 't2', taskIds: ['t1', 't2'] } })); });
+  const result = await store.addMemories({ text: 'fact' });
+  expect(result).toEqual({ taskId: 't2', taskIds: ['t1', 't2'] });
+  expect(calls).toBe(1);
+});
+
+
+it.each([{ taskIds: 't1' }, { taskIds: [''] }])('rejects malformed task IDs without resubmitting: $taskIds', async ({ taskIds }) => {
+  let calls = 0;
+  const store = await setup((_req, res) => { calls++; res.end(JSON.stringify({ success: true,
+    requestId: 'request-multi', data: { taskId: 't1', taskIds } })); });
+  await expect(store.addMemories({ text: 'fact' })).rejects.toMatchObject({ name: 'AddMemoriesOutcomeUnknownError', requestId: 'request-multi' });
+  expect(calls).toBe(1);
 });

@@ -480,7 +480,7 @@ class BoundSession implements MemorySession {
           });
           break;
         }
-        value = value.slice(0, Math.max(0, value.length - (size - maxChars)));
+        value = value.slice(0, Math.max(Math.floor(value.length / 2), value.length - (size - maxChars)));
       }
     }
     return {
@@ -560,7 +560,7 @@ export class NativeMemoryPlugin {
           ...(hit.memory.source !== undefined ? { source: hit.memory.source } : {}) };
         const size = chars(reference + JSON.stringify([...rendered, candidate]));
         if (size <= maxChars) { rendered.push(candidate); break; }
-        value = value.slice(0, Math.max(0, value.length - (size - maxChars)));
+        value = value.slice(0, Math.max(Math.floor(value.length / 2), value.length - (size - maxChars)));
       }
     }
     return Object.freeze({ ...result, context: rendered.length ? reference + JSON.stringify(rendered) : "" });

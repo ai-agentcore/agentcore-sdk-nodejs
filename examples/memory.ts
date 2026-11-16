@@ -9,8 +9,10 @@ try {
   });
 
   console.log('Memory task:', submission.taskId);
-  const task = await store.getMemoryTask(submission.taskId);
-  console.log('Task status:', task.status);
+  for (const taskId of submission.taskIds ?? [submission.taskId]) {
+    const task = await store.getMemoryTask(taskId);
+    console.log('Memory task:', taskId, task.status, task.memoryIds, task.error);
+  }
   // To wait for extraction instead, pass sync: true to addMemories and read result.memoryIds.
 
   // Search existing memories; the submitted task may still be pending.

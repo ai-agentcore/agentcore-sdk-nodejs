@@ -24,6 +24,7 @@ export class MemoryValidationError extends AgentCoreError { override readonly co
 export interface MemoryErrorDetails { serviceCode?: string; httpStatusCode?: number; requestId?: string; serviceMessage?: string; }
 export class MemoryAPIError extends AgentCoreError {
   override readonly code: string = 'MEMORY_API_FAILED';
+  readonly outcomeUnknown: boolean = false;
   readonly serviceCode?: string;
   readonly httpStatusCode?: number;
   readonly requestId?: string;
@@ -41,9 +42,27 @@ export class MemoryAPIError extends AgentCoreError {
 }
 export class MemoryContractError extends AgentCoreError {
   override readonly code = 'MEMORY_RESPONSE_INVALID';
-  constructor(readonly operation: string, readonly detail: string) { super(`AgentCore Memory ${operation} returned an invalid response: ${detail}`); }
+  readonly outcomeUnknown = false;
+  constructor(readonly operation: string, readonly detail: string, readonly requestId?: string) { super(`AgentCore Memory ${operation} returned an invalid response: ${detail}`); }
 }
 export class AddMemoriesOutcomeUnknownError extends MemoryAPIError {
   override readonly code = 'ADD_MEMORIES_OUTCOME_UNKNOWN';
+  override readonly outcomeUnknown = true;
   protected override summary(): string { return 'AgentCore Memory AddMemories outcome is unknown; the write may have succeeded'; }
+}
+export class CreateEventsOutcomeUnknownError extends MemoryAPIError {
+  override readonly code = 'CREATE_EVENTS_OUTCOME_UNKNOWN';
+  override readonly outcomeUnknown = true;
+  protected override summary(): string { return 'AgentCore Memory CreateEvents outcome is unknown; reconcile before replaying'; }
+}
+export class MemoryRequestAbortedError extends MemoryAPIError {
+  override readonly code = 'MEMORY_REQUEST_ABORTED';
+  constructor(operation: string, override readonly outcomeUnknown: boolean, cause: unknown) {
+    super(operation);
+    this.name = 'AbortError'; this.cause = cause;
+  }
+}
+export class MemoryRequestTimeoutError extends MemoryAPIError {
+  override readonly code = 'MEMORY_REQUEST_TIMEOUT';
+  constructor(operation: string, override readonly outcomeUnknown: boolean) { super(operation); }
 }

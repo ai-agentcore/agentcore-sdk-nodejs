@@ -41,6 +41,7 @@ npx tsx examples/cloud-resources.ts
 | [agent-template.ts](agent-template.ts) | 加载 Agent 模版的 Prompt、Skill，接入独立配置的 LangChain 模型 |
 | [mcp-credentials.ts](mcp-credentials.ts) | 为托管 MCP 绑定凭证、配置固定 Header，以及单独获取凭证 |
 | [memory.ts](memory.ts) | Memory 写入与检索，不依赖框架或模型连接 |
+| [context-memory.ts](context-memory.ts) | 原生事件写入、完整记忆检索与事件分页，输入由认证后的宿主传入 |
 | [direct-resources.ts](direct-resources.ts) | 自定义模型、MCP 和本地 Skill |
 | [server.ts](server.ts) | 不依赖模型的 Echo 服务 |
 | [langchain-server.ts](langchain-server.ts) | LangChain Agent、Memory 与 HTTP 服务 |

@@ -1,5 +1,11 @@
 # Release notes
 
+## SDK 0.1.9 (unreleased)
+
+- Add native ContextMemoryClient with CreateEvents, ListEvents and rich SearchMemories, context-purpose credentials and four-dimensional scope.
+- Add native Memory plugin construction, environment gates and source receipt correlation while retaining the gateway constructor.
+- Preserve unknown write outcomes and expose per-call timeout and cancellation metadata without automatic retries.
+
 ## SDK 0.1.8 — 2026-11-03
 
 - 支持通过环境变量选择默认模型和 AgentSpec，以及批量加载多个 MCP 和带独立版本的 Skill。

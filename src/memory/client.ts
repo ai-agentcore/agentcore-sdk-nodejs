@@ -131,8 +131,8 @@ function optionalScopeString(value: unknown, field: string): void {
 export function validateScope(scope: MemoryScope | undefined): MemoryScope | undefined {
   if (scope === undefined) return undefined;
   if (!scope || typeof scope !== 'object' || Array.isArray(scope)) throw new MemoryValidationError('scope must be a MemoryScope');
-  optionalScopeString(scope.userId, 'scope.userId'); optionalScopeString(scope.agentId, 'scope.agentId'); optionalScopeString(scope.sessionId, 'scope.sessionId');
-  return { userId: scope.userId, agentId: scope.agentId, sessionId: scope.sessionId };
+  optionalScopeString(scope.userId, 'scope.userId'); optionalScopeString(scope.agentId, 'scope.agentId'); optionalScopeString(scope.sessionId, 'scope.sessionId'); optionalScopeString(scope.teamId, 'scope.teamId');
+  return { userId: scope.userId, agentId: scope.agentId, sessionId: scope.sessionId, ...(scope.teamId !== undefined ? { teamId: scope.teamId } : {}) };
 }
 function validateMetadata(value: Readonly<Record<string, string>> | undefined): Record<string, string> | undefined {
   if (value === undefined) return undefined;
@@ -163,7 +163,7 @@ function parseMemory(value: unknown, operation: MemoryOperation): Memory {
     if (typeof item.metadata !== 'object' || Array.isArray(item.metadata) || Object.entries(item.metadata).some(([key, value]) => !key.trim() || typeof value !== 'string')) throw new MemoryContractError(operation, 'memory.metadata must contain string keys and values');
     metadata = Object.freeze({ ...item.metadata as Record<string, string> });
   }
-  return Object.freeze({ memoryId, content: Object.freeze({ text }), scope: Object.freeze({ agentId: optionalString(scope.agentId, operation, 'memory.scope.agentId'), sessionId: optionalString(scope.sessionId, operation, 'memory.scope.sessionId'), userId: optionalString(scope.userId, operation, 'memory.scope.userId') }),
+  return Object.freeze({ memoryId, content: Object.freeze({ text }), scope: Object.freeze({ agentId: optionalString(scope.agentId, operation, 'memory.scope.agentId'), sessionId: optionalString(scope.sessionId, operation, 'memory.scope.sessionId'), userId: optionalString(scope.userId, operation, 'memory.scope.userId'), ...(scope.teamId != null ? { teamId: optionalString(scope.teamId, operation, 'memory.scope.teamId') } : {}) }),
     metadata, createdAt: optionalString(item.createdAt, operation, 'memory.createdAt'), updatedAt: optionalString(item.updatedAt, operation, 'memory.updatedAt') });
 }
 function page<T>(body: Record<string, unknown>, operation: MemoryOperation, parse: (item: unknown) => T): Page<T> {

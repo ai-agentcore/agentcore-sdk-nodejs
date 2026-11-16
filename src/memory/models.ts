@@ -1,4 +1,4 @@
-export interface MemoryScope { readonly agentId?: string; readonly sessionId?: string; readonly userId?: string; }
+export interface MemoryScope { readonly agentId?: string; readonly sessionId?: string; readonly userId?: string; readonly teamId?: string; }
 export interface MemoryMessage { readonly role: string; readonly content: string; }
 export interface MemoryContent { readonly text: string; }
 export interface Memory {

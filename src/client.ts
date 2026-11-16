@@ -17,6 +17,8 @@ import { Templates } from './templates';
 import { ResourceDefaults } from './resource-defaults';
 import { BoundCredentials } from './auth/bound-credentials';
 import { MemoryStore } from './memory/client';
+import { bindContextMemory, contextEndpoint, type ContextMemoryClient } from './memory/context-client';
+import { RuntimeEnvironmentProvider } from './runtime/environment';
 import { CollaborationClient } from './collaboration/client';
 
 export interface AgentCoreOptions extends ManagedRuntimeOptions {
@@ -93,6 +95,23 @@ export class AgentCore {
       if (!this.context) await this.ensureRuntime();
       return { ...this.context!, endpoint: this.runtime?.controlPlaneEndpoint ?? this.options.controlPlaneEndpoint, accessKeyCredential: this.options.accessKeyCredential };
     } });
+  }
+
+  contextMemory(name: string, options: { endpoint?: string } = {}): ContextMemoryClient {
+    this.ensureOpen();
+    return bindContextMemory(name, async () => {
+      this.ensureOpen();
+      if (!this.context) await this.ensureRuntime();
+      const context = this.context!;
+      let endpoint = options.endpoint;
+      if (endpoint === undefined && this.runtimeSource && !(this.runtimeSource instanceof DebugRuntimeSource)) {
+        const values = await new RuntimeEnvironmentProvider(this.options.envPath || process.env.AGENTCORE_ENV_PATH).read();
+        endpoint = values.AGENTCORE_MEMORY_ENDPOINT || process.env.AGENTCORE_MEMORY_ENDPOINT;
+      }
+      this.ensureOpen();
+      return { ...context, endpoint: contextEndpoint(endpoint ?? process.env.AGENTCORE_MEMORY_ENDPOINT, context.regionId),
+        accessKeyCredential: this.options.accessKeyCredential };
+    }, this.logger);
   }
 
   async model(resourceName?: string, options: { model?: string; timeoutMs?: number } = {}): Promise<ModelClient> {

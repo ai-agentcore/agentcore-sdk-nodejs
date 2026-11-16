@@ -90,7 +90,7 @@ export class MemoryTransport {
     this.logger.warn('agentcore.memory.request.failed', { operation: error.operation, memory_store_name: this.store, error_type: error.name,
       status: error instanceof MemoryAPIError ? error.httpStatusCode ?? '-' : '-',
       service_code: error instanceof MemoryAPIError ? error.serviceCode ?? '-' : '-',
-      request_id: error instanceof MemoryAPIError ? error.requestId ?? '-' : '-',
+      request_id: error.requestId ?? '-',
       message: error instanceof MemoryAPIError ? error.serviceMessage ?? '-' : error.detail });
   }
 }

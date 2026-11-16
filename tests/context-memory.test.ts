@@ -218,6 +218,57 @@ it.each([400, 503])('classifies HTTP %s writes without retrying', async (status)
   expect(requests).toBe(1);
 });
 
+it.each(
+  [
+    { operation: 'CreateEvents', call: (client: ContextMemoryClient) => client.createEvents([event]) },
+    { operation: 'ListEvents', call: (client: ContextMemoryClient) => client.listEvents() },
+    {
+      operation: 'SearchMemories',
+      call: (client: ContextMemoryClient) => client.searchMemories('PRIVATE_QUERY'),
+    },
+  ].flatMap((test) => [403, 503].map((status) => ({ ...test, status }))),
+)(
+  'preserves HTTP 200 business error $status for $operation without retrying',
+  async ({ operation, call, status }) => {
+    let requests = 0;
+    const serviceCode = status === 503 ? 'ServiceUnavailable' : 'Forbidden';
+    const requestId = `req-business-${status}`;
+    const message = 'Memory service unavailable';
+    const { client, logger } = await setup((_req, res) => {
+      requests++;
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(
+        JSON.stringify({ success: false, httpStatusCode: status, code: serviceCode, message, requestId }),
+      );
+    });
+    const error = await call(client).catch((error) => error);
+    const uncertain = operation === 'CreateEvents' && status === 503;
+    expect(error).toBeInstanceOf(uncertain ? CreateEventsOutcomeUnknownError : MemoryAPIError);
+    expect(error).toMatchObject({
+      operation,
+      code: uncertain ? 'CREATE_EVENTS_OUTCOME_UNKNOWN' : 'MEMORY_API_FAILED',
+      httpStatusCode: status,
+      serviceCode,
+      requestId,
+      serviceMessage: message,
+      outcomeUnknown: uncertain,
+    });
+    expect(logger.warn).toHaveBeenCalledExactlyOnceWith(
+      'agentcore.memory.request.failed',
+      expect.objectContaining({
+        operation,
+        status,
+        service_code: serviceCode,
+        request_id: requestId,
+        message,
+      }),
+    );
+    expect(requests).toBe(1);
+    expect(JSON.stringify(logger.warn.mock.calls)).not.toMatch(/PRIVATE_QUERY|PRIVATE_CONTENT|test-sk/);
+  },
+);
+
 it('uses context-purpose credentials for the native client', async () => {
   const { options } = await setup((_req, res) => res.end('{"success":true,"items":[]}'));
   const get = vi.fn(() => credential);

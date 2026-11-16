@@ -61,8 +61,7 @@ export class MemoryTransport {
       }
       const response = record(raw); const payload = record(response.body);
       const httpStatus = integer(response.statusCode);
-      const details: MemoryErrorDetails = { serviceCode: text(payload.code), httpStatusCode: this.purpose === 'context'
-        ? httpStatus ?? integer(payload.httpStatusCode) : integer(payload.httpStatusCode) ?? httpStatus,
+      const details: MemoryErrorDetails = { serviceCode: text(payload.code), httpStatusCode: integer(payload.httpStatusCode) ?? httpStatus,
         requestId: text(payload.requestId) ?? headerRequestId(response.headers), serviceMessage: text(payload.message) };
       try {
         if ((httpStatus ?? 0) >= 400 || this.purpose === 'context' && (details.httpStatusCode ?? 0) >= 400 || payload.success === false) {

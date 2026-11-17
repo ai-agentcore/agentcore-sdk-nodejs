@@ -31,18 +31,12 @@ jobs:
           cache-dependency-path: |
             package-lock.json
             packages/collaboration/package-lock.json
-            packages/memory-plugin/package-lock.json
       - run: npm ci
       - name: SDK types, tests and build
         run: |
           npm run typecheck
           npm test
           npm run build
-      - name: Memory plugin types and build
-        run: |
-          npm --prefix packages/memory-plugin ci
-          npm --prefix packages/memory-plugin run typecheck
-          npm --prefix packages/memory-plugin run build
       - name: Collaboration types, tests and build
         run: |
           npm --prefix packages/collaboration ci

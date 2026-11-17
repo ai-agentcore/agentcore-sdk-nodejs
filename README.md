@@ -220,6 +220,8 @@ const result = await store.addMemories({ text: '用户喜欢简短回答。', sy
 console.log(result.memoryIds);
 ```
 
+框架适配器可直接接收 `core.contextMemory("my-memory-store")`，按需保存本轮对话事件；已有 `core.memoryStore(...)` 用法继续支持。
+
 完整代码见 [Memory 基础示例](examples/memory.ts)。框架接入见 [LangChain](examples/langchain-server.ts)、[Google ADK](examples/google-adk.ts) 和 [Mastra](examples/mastra.ts) 示例。
 
 ## 框架集成

@@ -1,7 +1,7 @@
 import { createMiddleware } from 'langchain';
 import { z } from 'zod';
 import { AIMessage, HumanMessage, SystemMessage, type BaseMessage } from '@langchain/core/messages';
-import type { MemoryStore, MemoryMessage } from '../memory';
+import type { ContextMemoryClient, MemoryStore, MemoryMessage } from '../memory';
 import { nullLogger, type Logger } from '../logging';
 import { recallMemory, recordMemory, validateTopK, validateScope, type MemoryScopes } from './memory/common';
 import { withMemory } from './langgraph';
@@ -24,8 +24,8 @@ const memoryState = z.object({
 });
 
 /** Recall per agent invocation; history/checkpoints and identity remain application-owned. */
-export function agentCoreMemoryMiddleware<TContextSchema extends z.ZodObject = z.ZodObject<{}>>(store: MemoryStore, options: AgentCoreMemoryMiddlewareOptions<TContextSchema>) {
-  const topK = options.topK ?? 5; validateTopK(topK);
+export function agentCoreMemoryMiddleware<TContextSchema extends z.ZodObject = z.ZodObject<{}>>(store: MemoryStore | ContextMemoryClient, options: AgentCoreMemoryMiddlewareOptions<TContextSchema>) {
+  const topK = options.topK ?? 5; validateTopK(topK, store);
   const logger = options.logger ?? nullLogger;
   return createMiddleware({
     name: 'AgentCoreMemory', stateSchema: memoryState, contextSchema: options.contextSchema,

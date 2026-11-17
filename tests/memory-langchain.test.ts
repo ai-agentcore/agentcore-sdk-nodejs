@@ -30,11 +30,12 @@ async function setup(status = 200) {
     const action = String(req.headers['x-acs-action']); requests.push({ action, body: JSON.parse(new URLSearchParams(raw).get('body')!) });
     res.setHeader('content-type', 'application/json'); res.statusCode = status;
     res.end(status !== 200 ? '{"Code":"Forbidden","RequestId":"memory-test-id","Message":"Access denied; token=PRIVATE_TOKEN"}' : JSON.stringify(action === 'SearchMemories'
-      ? { success: true, data: { memories: [{ memory: { memoryId: 'm', content: { text: 'User likes coffee' }, scope: {} }, score: 1, similarity: 1 }] } }
+      ? { success: true, data: { memories: [{ memory: { memoryId: 'm', content: { text: 'User likes coffee' }, scope: requests.at(-1)!.body.scope }, score: 1, similarity: 1 }] } }
+      : action === 'CreateEvents' ? { success: true, data: { results: (requests.at(-1)!.body.events as unknown[]).map((_, inputIndex) => ({ inputIndex, status: 'STORED', eventId: `event-${inputIndex}` })) } }
       : { success: true, data: { taskId: 'task-1' } }));
   }); servers.push(endpoint);
   const core = new AgentCore({ workspaceId: 'ws', regionId: 'cn-hangzhou', controlPlaneEndpoint: endpoint.url, accessKeyCredential: new AccessKeyCredential({ accessKeyId: 'test-ak', accessKeySecret: 'test-sk' }) }); cores.push(core);
-  return { core, requests };
+  return { core, requests, context: core.contextMemory("mem", { endpoint: endpoint.url }) };
 }
 const scopes = { read: { agentId: 'agent' }, write: { agentId: 'agent', sessionId: 'session' } };
 
@@ -131,4 +132,25 @@ it('does not record an unfinished turn when the model fails', async () => {
   const agent = createAgent({ model: new FailingModel(), middleware: [agentCoreMemoryMiddleware(core.memoryStore('mem'), { scopeResolver: () => scopes, writeBack: true })] });
   await expect(agent.invoke({ messages: [new HumanMessage('Question')] })).rejects.toThrow('model unavailable');
   expect(requests.map((r) => r.action)).toEqual(['SearchMemories']);
+});
+
+
+it('Context Memory writes the completed turn after tools without saving history or recall', async () => {
+  const { context, requests } = await setup();
+  const model = new ScriptedModel([
+    new AIMessage({ content: '', tool_calls: [{ name: 'lookup', args: {}, id: 'c1' }] }), new AIMessage('answer'),
+  ]);
+  const agent = createAgent({ model, tools: [tool(() => 'private tool output', { name: 'lookup', description: 'Lookup', schema: z.object({}) })],
+    middleware: [agentCoreMemoryMiddleware(context, { scopeResolver: () => scopes, writeBack: true, topK: 100 })] });
+  const result = await agent.invoke({ messages: [new HumanMessage('old question'), new AIMessage('old answer'), new HumanMessage('current question')] });
+  expect(result.messages.at(-1)!.content).toBe('answer');
+  expect(model.inputs).toHaveLength(2);
+  expect(JSON.stringify(model.inputs[0])).toContain('User likes coffee');
+  expect(requests.map(r => r.action)).toEqual(['SearchMemories', 'CreateEvents']);
+  expect(requests[0]!.body.topK).toBe(100);
+  expect(requests[1]!.body.scope).toEqual(scopes.write);
+  expect((requests[1]!.body.events as any[]).map(e => e.data)).toEqual([
+    { role: 'user', content: [{ type: 'text', text: 'current question' }] },
+    { role: 'assistant', content: [{ type: 'text', text: 'answer' }] },
+  ]);
 });

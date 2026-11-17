@@ -4,7 +4,7 @@ import type { MastraDBMessage } from '@mastra/core/agent/message-list';
 import type { ProcessInputArgs, ProcessLLMRequestArgs, ProcessLLMRequestResult, ProcessOutputResultArgs } from '@mastra/core/processors';
 import type { RequestContext } from '@mastra/core/request-context';
 import type { ModelClient, ProviderModelClient } from '../model';
-import type { MemoryStore, MemoryMessage, MemoryScope } from '../memory';
+import type { ContextMemoryClient, MemoryStore, MemoryMessage, MemoryScope } from '../memory';
 import type { Logger } from '../logging';
 import { ConfigError } from '../errors';
 import type { Tool } from './common';
@@ -45,8 +45,8 @@ interface TurnMemory { input: MemoryMessage[]; reference: string; writeScope?: M
 export class AgentCoreMemoryProcessor {
   readonly id = 'agentcore-memory';
   private readonly topK: number;
-  constructor(private readonly store: MemoryStore, private readonly options: AgentCoreMemoryProcessorOptions) {
-    this.topK = options.topK ?? 5; validateTopK(this.topK);
+  constructor(private readonly store: MemoryStore | ContextMemoryClient, private readonly options: AgentCoreMemoryProcessorOptions) {
+    this.topK = options.topK ?? 5; validateTopK(this.topK, store);
   }
   async processInput({ messages, state, requestContext }: ProcessInputArgs) {
     const scopes = this.options.scopeResolver(requestContext);

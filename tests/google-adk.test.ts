@@ -13,7 +13,7 @@ afterEach(async () => { for (const close of cleanup.splice(0).reverse()) await c
 async function collect<T>(source: AsyncIterable<T>): Promise<T[]> { const result: T[] = []; for await (const value of source) result.push(value); return result; }
 const request = (contents: LlmRequest['contents'], config?: LlmRequest['config']): LlmRequest => ({ contents, config, liveConnectConfig: {}, toolsDict: {} });
 
-async function fixture(protocol: string, status = 200) {
+async function fixture(protocol: string, status = 200, native = false) {
   const requests: { path: string; auth?: string; key?: string; body: Record<string, any> }[] = [];
   const memories: { action: string; body: Record<string, any> }[] = [];
   const endpoint = await httpServer((req, res) => {
@@ -23,7 +23,8 @@ async function fixture(protocol: string, status = 200) {
         const action = String(req.headers['x-acs-action']); memories.push({ action, body: JSON.parse(new URLSearchParams(raw).get('body')!) });
         res.setHeader('content-type', 'application/json'); res.statusCode = status;
         res.end(status !== 200 ? '{"Code":"Forbidden","RequestId":"adk-memory-test"}' : JSON.stringify(action === 'SearchMemories'
-          ? { success: true, data: { memories: [{ memory: { memoryId: 'm1', content: { text: 'User likes coffee' }, scope: {}, createdAt: '2026-09-07T00:00:00Z' }, score: 1, similarity: 1 }] } }
+          ? { success: true, data: { memories: [{ memory: { memoryId: 'm1', content: { text: 'User likes coffee' }, scope: memories.at(-1)!.body.scope, createdAt: '2026-09-07T00:00:00Z' }, score: 1, similarity: 1 }] } }
+          : action === 'CreateEvents' ? { success: true, data: { results: memories.at(-1)!.body.events.map((_: unknown, inputIndex: number) => ({ inputIndex, status: 'STORED', eventId: `e${inputIndex}` })) } }
           : { success: true, data: { taskId: 'task-1' } })); return;
       }
       const body = JSON.parse(raw); requests.push({ path: req.url!, auth: req.headers.authorization, key: req.headers['x-api-key'] as string, body });
@@ -63,13 +64,13 @@ async function fixture(protocol: string, status = 200) {
   const core = new AgentCore({ workspaceId: 'ws', regionId: 'cn-hangzhou', controlPlaneEndpoint: endpoint.url,
     accessKeyCredential: new AccessKeyCredential({ accessKeyId: 'test-ak', accessKeySecret: 'test-sk' }) }); cleanup.push(() => core.close());
   const partitions: string[][] = [];
-  const memory = new AgentCoreMemoryService(core.memoryStore('test-memory'), { partitionResolver: (app, user) => { partitions.push([app, user]); return `${app}:${user}`; } });
+  const memory = new AgentCoreMemoryService(native ? core.contextMemory('test-memory', { endpoint: endpoint.url }) : core.memoryStore('test-memory'), { partitionResolver: (app, user) => { partitions.push([app, user]); return `${app}:${user}`; } });
   return { endpoint, client, core, requests, memories, memory, partitions };
 }
 
-it.each(['OpenAI/v1', 'Anthropic'].flatMap(protocol => [false, true].map(stream => ({ protocol, stream }))))(
-  'runs native ADK model/tool/Memory through $protocol (stream=$stream)', async ({ protocol, stream }) => {
-    const { client, memory, requests, memories, partitions } = await fixture(protocol);
+it.each(['OpenAI/v1', 'Anthropic'].flatMap(protocol => [false, true].flatMap(stream => [false, true].map(native => ({ protocol, stream, native })))))(
+  'runs native ADK model/tool/Memory through $protocol (stream=$stream, Context=$native)', async ({ protocol, stream, native }) => {
+    const { client, memory, requests, memories, partitions } = await fixture(protocol, 200, native);
     const calls: unknown[] = [];
     const agent = new LlmAgent({ name: 'agent', model: await model(client), instruction: 'Answer the user.',
       generateContentConfig: { temperature: 0.2, maxOutputTokens: 64 },
@@ -95,6 +96,16 @@ it.each(['OpenAI/v1', 'Anthropic'].flatMap(protocol => [false, true].map(stream 
     const session = (await sessionService.getSession({ appName: 'app', userId: 'user', sessionId: 'session' }))!;
     expect(JSON.stringify(session.events)).not.toContain('User likes coffee');
     await memory.addSessionToMemory(session);
+    if (native) {
+      const writes = memories.filter(entry => entry.action === 'CreateEvents');
+      expect(writes).toHaveLength(1);
+      expect(writes[0]!.body.scope).toEqual({ agentId: 'app:user', sessionId: 'session' });
+      expect(writes[0]!.body.events.map((e: any) => e.data)).toEqual([
+        { role: 'user', content: [{ type: 'text', text: 'Drink?' }] },
+        { role: 'assistant', content: [{ type: 'text', text: 'Try coffee in 杭州.' }] },
+      ]);
+      expect(memories.some(entry => entry.action === 'AddMemories')).toBe(false);
+    } else
     expect(memories.filter(entry => entry.action === 'AddMemories').map(entry => entry.body)).toEqual([
       { sync: false, scope: { agentId: 'app:user', sessionId: 'session' }, messages: [{ role: 'user', content: 'Drink?' }, { role: 'assistant', content: 'Try coffee in 杭州.' }] },
     ]);

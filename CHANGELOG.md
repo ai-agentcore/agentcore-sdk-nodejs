@@ -1,6 +1,13 @@
 # Release notes
 
-## SDK 0.1.9 (unreleased)
+## SDK 0.1.10 — 2026-11-17
+
+- LangChain、LangGraph、Google ADK 和 Mastra 的 Memory 适配器支持直接使用 Context Memory 客户端检索记忆和写入本轮对话事件，保留原有 MemoryStore 用法。
+- 检查逐事件写入回执，并按接口上限分批提交；Google ADK 导入保留原始事件时间戳。
+- 修复旧 Memory 接口的部分成功结果与多个任务 ID 处理，避免丢失已返回的结果。
+- 更新框架用法示例并补充回归测试。
+
+## SDK 0.1.9
 
 - Add native ContextMemoryClient with CreateEvents, ListEvents and rich SearchMemories, context-purpose credentials and four-dimensional scope.
 - Add native Memory plugin construction, environment gates and source receipt correlation while retaining the gateway constructor.

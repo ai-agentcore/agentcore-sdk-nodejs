@@ -112,7 +112,93 @@ describe('Resource STS over HTTP', () => {
   });
 });
 
-describe('opaque WAT', () => {
+function watWithClaims(claims: Record<string, unknown>): string {
+  const payload = Buffer.from(JSON.stringify(claims)).toString('base64url');
+  return `e30.${payload}.c2ln`;
+}
+
+describe('workload access token', () => {
+  it.each([30_000, 61_000])('shares one refresh after %i ms and ignores stale invalidation', async (elapsed) => {
+    let now = 1_800_000_000_000;
+    const clock = vi.spyOn(Date, 'now').mockImplementation(() => now);
+    const original = watWithClaims({ exp: now / 1000 + 60 });
+    const fresh = watWithClaims({ exp: now / 1000 + 3600 });
+    let calls = 0;
+    try {
+      const endpoint = await server((_req, res) => {
+        res.end(JSON.stringify({ workloadAccessToken: ++calls === 1 ? original : fresh }));
+      });
+      const provider = new WorkloadAccessTokenProvider(endpoint.url, { get: () => 'sa' }); providers.push(provider);
+      expect(await provider.get()).toBe(original);
+      now += 29_000;
+      expect(await provider.get()).toBe(original);
+      now += elapsed - 29_000;
+      expect(await Promise.all([provider.get(), provider.get()])).toEqual([fresh, fresh]);
+      await provider.invalidate(original);
+      expect(await provider.get()).toBe(fresh);
+      expect(calls).toBe(2);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+  it.each(['503', 'transport', '401', 'expired during refresh', 'invalidated during refresh'])(
+    'only reuses a valid WAT on transient refresh failure (%s)', async (failure) => {
+      let now = 1_800_000_000_000;
+      const expiry = now + 60_000;
+      const clock = vi.spyOn(Date, 'now').mockImplementation(() => now);
+      const original = watWithClaims({ exp: expiry / 1000 });
+      let calls = 0;
+      let invalidation: Promise<void> | undefined;
+      try {
+        const endpoint = await server((req, res) => {
+          if (++calls === 1) {
+            res.end(JSON.stringify({ workloadAccessToken: original }));
+            return;
+          }
+          if (failure === 'transport') {
+            req.socket.destroy();
+            return;
+          }
+          if (failure === 'expired during refresh') now = expiry;
+          if (failure === 'invalidated during refresh') invalidation = provider.invalidate(original);
+          res.statusCode = failure === '401' ? 401 : 503;
+          res.end('{}');
+        });
+        const provider = new WorkloadAccessTokenProvider(endpoint.url, { get: () => 'sa' }, { maxAttempts: 1 });
+        providers.push(provider);
+        expect(await provider.get()).toBe(original);
+        now += 30_000;
+        if (failure === '503' || failure === 'transport') {
+          expect(await Promise.all([provider.get(), provider.get()])).toEqual([original, original]);
+          expect(calls).toBe(2);
+          now = expiry;
+        }
+        await expect(provider.get()).rejects.toBeInstanceOf(AuthenticationError);
+        await invalidation;
+      } finally {
+        clock.mockRestore();
+      }
+    },
+  );
+  it.each([
+    'opaque',
+    'e30.invalid!.c2ln',
+    watWithClaims({}),
+    watWithClaims({ exp: '1' }),
+    watWithClaims({ exp: true }),
+    watWithClaims({ exp: 1.5 }),
+  ])('caches a WAT with no usable expiry until invalidated (%s)', async (token) => {
+    let calls = 0;
+    const endpoint = await server((_req, res) => {
+      res.end(JSON.stringify({ workloadAccessToken: ++calls === 1 ? token : 'fresh' }));
+    });
+    const provider = new WorkloadAccessTokenProvider(endpoint.url, { get: () => 'sa' }); providers.push(provider);
+    expect(await provider.get()).toBe(token);
+    expect(await provider.get()).toBe(token);
+    await provider.invalidate(token);
+    expect(await provider.get()).toBe('fresh');
+    expect(calls).toBe(2);
+  });
   it('caches and coalesces until invalidated, and ignores stale invalidations', async () => {
     let calls = 0;
     const endpoint = await server((req, res) => {

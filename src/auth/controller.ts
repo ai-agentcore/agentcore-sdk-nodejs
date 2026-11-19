@@ -15,6 +15,12 @@ interface ControllerResponse {
   message?: string;
 }
 
+export class ControllerTransportError extends CredentialExchangeError {}
+
+export function isRetryableControllerStatus(status: number): boolean {
+  return [500, 502, 503, 504].includes(status);
+}
+
 // Shared transport only for the Controller's idempotent credential exchanges.
 export class ControllerClient {
   private readonly endpoint: string;
@@ -72,7 +78,7 @@ export class ControllerClient {
       } catch (cause) {
         this.lifetime.signal.throwIfAborted();
         this.logger.warn('agentcore.controller.request.failed', { ...fields, attempt, reason: 'transport_error' });
-        if (attempt === this.maxAttempts) throw new CredentialExchangeError('cannot reach the AgentCore Controller', { cause });
+        if (attempt === this.maxAttempts) throw new ControllerTransportError('cannot reach the AgentCore Controller', { cause });
         await sleep(50 * 2 ** (attempt - 1), undefined, { signal: this.lifetime.signal });
         continue;
       } finally { clearTimeout(timer); }
@@ -92,7 +98,7 @@ export class ControllerClient {
         ...fields, status: response.status, attempt, message,
         requestId: response.headers.get('x-acs-request-id') ?? response.headers.get('x-request-id') ?? undefined,
       });
-      if (![500, 502, 503, 504].includes(response.status) || attempt === this.maxAttempts) return result;
+      if (!isRetryableControllerStatus(response.status) || attempt === this.maxAttempts) return result;
       await sleep(50 * 2 ** (attempt - 1), undefined, { signal: this.lifetime.signal });
     }
     throw new CredentialExchangeError('Controller request did not complete');

@@ -9,7 +9,9 @@ import type { AccessKeyCredential, CredentialProvider } from './access-key';
 import { AGENT_IDENTITY_DATA_PURPOSE } from './resource-sts';
 
 const GeneratedClient = typeof Client === 'function' ? Client : (Client as unknown as { default: typeof Client }).default;
-const WAT_ERRORS = new Set(['WORKLOAD_ACCESS_TOKEN_EXPIRED', 'WORKLOAD_ACCESS_TOKEN_INVALID']);
+const WAT_ERRORS = new Set([
+  'WORKLOAD_ACCESS_TOKEN_EXPIRED', 'WORKLOAD_ACCESS_TOKEN_INVALID', 'INVALIDPARAMETER.WORKLOADACCESSTOKEN',
+]);
 interface CredentialRuntime {
   workspaceId: string;
   regionId: string;
@@ -72,13 +74,16 @@ export class BoundCredentials {
     const providerName = `${workspaceId}-${credentialName}`;
     this.logger.info('agentcore.credential.resolve.started', { workspace_id: workspaceId, credential_name: credentialName });
     const credential = await sts.get(AGENT_IDENTITY_DATA_PURPOSE);
-    let token = await wat.get(); let value: string;
-    try { value = await this.getAPIKey(regionId, credential, providerName, token); }
+    const getWithToken = (token: string) => this.getAPIKey(regionId, credential, providerName, token).catch(async (error: unknown) => {
+      if (error instanceof WorkloadAccessTokenRejectedError) await wat.invalidate(token);
+      throw error;
+    });
+    const token = await wat.get(); let value: string;
+    try { value = await getWithToken(token); }
     catch (error) {
       if (!(error instanceof WorkloadAccessTokenRejectedError)) throw error;
       this.logger.warn('agentcore.credential.resolve.wat_rejected', { workspace_id: workspaceId, credential_name: credentialName, retry: true });
-      await wat.invalidate(token); token = await wat.get();
-      value = await this.getAPIKey(regionId, credential, providerName, token);
+      value = await getWithToken(await wat.get());
     }
     this.logger.info('agentcore.credential.resolve.succeeded', { workspace_id: workspaceId, credential_name: credentialName });
     return new BoundCredential(providerName, value, metadata);
@@ -97,10 +102,10 @@ export class BoundCredentials {
       if (typeof value !== 'string' || !value) throw new CredentialExchangeError('Agent Identity Data returned an empty or invalid API key');
       return value;
     } catch (error) {
-      if (watRejection(error)) throw new WorkloadAccessTokenRejectedError('Agent Identity Data rejected the Workload Access Token');
-      const details = fields(error); const data = fields(details.data);
+      const { serviceCode, requestId, watRejected } = identityFailure(error);
       this.logger.warn('agentcore.credential.api.failed', { endpoint: `https://${endpoint}/`, provider_name: providerName,
-        error_type: error instanceof Error ? error.name : 'Error', request_id: String(details.requestId ?? data.RequestId ?? data.requestId ?? '') });
+        error_type: error instanceof Error ? error.name : 'Error', service_code: serviceCode, request_id: requestId });
+      if (watRejected) throw new WorkloadAccessTokenRejectedError('Agent Identity Data rejected the Workload Access Token');
       if (error instanceof CredentialExchangeError) throw error;
       // Generated SDK errors may contain a credential-bearing request; do not attach them.
       throw new CredentialExchangeError('Agent Identity Data API key request failed');
@@ -108,13 +113,22 @@ export class BoundCredentials {
   }
 }
 function fields(value: unknown): Record<string, unknown> { return value && typeof value === 'object' ? value as Record<string, unknown> : {}; }
-function watRejection(error: unknown): boolean {
+function identityFailure(error: unknown) {
   let current = fields(error);
+  let serviceCode: string | undefined;
+  let rejectedCode: string | undefined;
+  let requestId: string | undefined;
   for (let depth = 0; depth < 3; depth++) {
     const data = fields(current.data);
-    if ([current.code, data.Code, data.code].some((code) => typeof code === 'string' && WAT_ERRORS.has(code.toUpperCase()))) return true;
-    if (!current.innerException) return false;
+    for (const code of [current.code, data.Code, data.code]) {
+      if (typeof code !== 'string' || !code) continue;
+      serviceCode ??= code;
+      if (WAT_ERRORS.has(code.toUpperCase())) rejectedCode ??= code;
+    }
+    requestId ??= [current.requestId, data.RequestId, data.requestId]
+      .find((value): value is string => typeof value === 'string' && value.length > 0);
+    if (!current.innerException) break;
     current = fields(current.innerException);
   }
-  return false;
+  return { serviceCode: rejectedCode ?? serviceCode, requestId, watRejected: rejectedCode !== undefined };
 }

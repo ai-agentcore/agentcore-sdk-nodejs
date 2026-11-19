@@ -11,7 +11,7 @@ import { ManagedRuntimeSource, type ManagedRuntimeOptions, type RuntimeBindings,
 export class DebugToken {
   readonly product = 'agentcore';
   #jwtToken: string;
-  constructor(jwtToken: string, readonly controllerUrl: string, readonly modelGatewayUrl: string, readonly matrixUrl: string) { this.#jwtToken = jwtToken; }
+  constructor(jwtToken: string, readonly controllerUrl: string, readonly modelGatewayUrl: string, readonly matrixUrl?: string) { this.#jwtToken = jwtToken; }
   get jwtToken(): string { return this.#jwtToken; }
   [inspect.custom](): string { return 'DebugToken(product=agentcore, <redacted>)'; }
   toJSON(): string { return this[inspect.custom](); }
@@ -28,7 +28,7 @@ export function parseDebugToken(value: string): DebugToken {
     const controller = httpUrl(data.controllerUrl, 'controllerUrl');
     if (new URL(controller).pathname !== '/') throw new Error('controllerUrl path');
     return new DebugToken(requiredString(data.jwtToken, 'jwtToken'), controller,
-      httpUrl(data.modelGatewayUrl, 'modelGatewayUrl'), httpUrl(data.matrixUrl, 'matrixUrl'));
+      httpUrl(data.modelGatewayUrl, 'modelGatewayUrl'), data.matrixUrl === undefined ? undefined : httpUrl(data.matrixUrl, 'matrixUrl'));
   } catch { throw new ConfigError('AGENTCORE_DEBUG_TOKEN is invalid'); }
 }
 
@@ -56,7 +56,10 @@ export class DebugRuntimeSource implements RuntimeSource, AgentSATokenSource {
     this.controller = new ControllerClient(token.controllerUrl, this, options);
     this.logger = options.logger ?? nullLogger;
   }
-  get matrixUrl(): string { return this.token.matrixUrl; }
+  get matrixUrl(): string {
+    if (this.token.matrixUrl === undefined) throw new ConfigError('matrixUrl is required for Matrix access');
+    return this.token.matrixUrl;
+  }
 
   async resolve(): Promise<RuntimeBindings> {
     this.lifetime.signal.throwIfAborted();

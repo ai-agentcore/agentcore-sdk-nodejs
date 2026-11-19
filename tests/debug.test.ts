@@ -21,6 +21,9 @@ describe('bootstrap token', () => {
     expect(token.jwtToken).toBe('original-jwt'); expect(token.modelGatewayUrl).toBe('http://localhost:8000');
     expect(inspect(token)).not.toContain('original-jwt'); expect(JSON.stringify(token)).not.toContain('original-jwt');
   });
+  it('accepts a high-code token without a Matrix endpoint', () => {
+    expect(parseDebugToken(encode('https://controller.example', { matrixUrl: undefined })).matrixUrl).toBeUndefined();
+  });
   it.each(['invalid', '', encode('https://controller.example/path'), encode('https://controller.example', { product: 'other' }), encode('https://controller.example', { matrixUrl: null })])('rejects malformed envelope', (raw) => {
     expect(() => parseDebugToken(raw)).toThrow(ConfigError);
   });

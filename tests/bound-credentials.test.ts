@@ -154,11 +154,31 @@ it.each([
   expect(seen).toEqual(['wat-1', 'wat-2']); expect(operations.filter((s) => s.includes('workload/token'))).toHaveLength(2);
 });
 
-it('does not keep retrying when the new WAT is also rejected', async () => {
-  let calls = 0;
-  const { core, operations } = await setup((_req, res) => { calls++; res.statusCode = 400; res.setHeader('content-type', 'application/json'); res.end('{"Code":"InvalidParameter.WorkloadAccessToken","Message":"invalid"}'); });
+it('clears the second rejected WAT and logs both Request IDs without retrying again', async () => {
+  const seen: Array<string | null> = [];
+  const entries: unknown[] = [];
+  const logger: Logger = { debug() {}, info() {}, warn: (...args) => entries.push(args), error() {} };
+  const code = 'InvalidParameter.WorkloadAccessToken';
+  const { core, operations } = await setup(async (req, res) => {
+    let body = ''; for await (const chunk of req) body += chunk;
+    seen.push(new URLSearchParams(body).get('WorkloadAccessToken'));
+    res.setHeader('content-type', 'application/json');
+    if (seen.length <= 2) {
+      res.statusCode = 400;
+      res.end(JSON.stringify({ Code: code, Message: 'rejected wat-1 wat-2', RequestId: `identity-rejected-${seen.length}` }));
+    } else res.end('{"APIKey":"fresh-api-key"}');
+  }, logger);
   await expect(core.credentials.get('name')).rejects.toBeInstanceOf(WorkloadAccessTokenRejectedError);
-  expect(calls).toBe(2); expect(operations.filter((s) => s.includes('workload/token'))).toHaveLength(2);
+  expect(seen).toEqual(['wat-1', 'wat-2']);
+  expect(operations.filter((s) => s.includes('workload/token'))).toHaveLength(2);
+  expect((await core.credentials.get('name')).value).toBe('fresh-api-key');
+  expect(seen).toEqual(['wat-1', 'wat-2', 'wat-3']);
+  expect(operations.filter((s) => s.includes('workload/token'))).toHaveLength(3);
+  expect(entries).toEqual(expect.arrayContaining([
+    ['agentcore.credential.api.failed', expect.objectContaining({ request_id: 'identity-rejected-1', service_code: code })],
+    ['agentcore.credential.api.failed', expect.objectContaining({ request_id: 'identity-rejected-2', service_code: code })],
+  ]));
+  expect(JSON.stringify(entries)).not.toMatch(/wat-[12]/);
 });
 
 it('does not refresh WAT on a general permission denial', async () => {

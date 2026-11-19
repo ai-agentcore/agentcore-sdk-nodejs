@@ -1,8 +1,10 @@
 import { AuthenticationError, WorkloadIdentityNotConfiguredError } from '../errors';
 import type { AgentSATokenSource } from './agent-sa-token';
-import { ControllerClient, type ControllerOptions } from './controller';
+import { ControllerClient, ControllerTransportError, isRetryableControllerStatus, type ControllerOptions } from './controller';
 
 const REFRESH_BEFORE_SECONDS = 30;
+
+class WorkloadTokenUnavailable extends AuthenticationError {}
 
 function tokenExpiry(token: string): number | undefined {
   // The unverified claim is a cache hint only.
@@ -21,7 +23,7 @@ function tokenExpiry(token: string): number | undefined {
 
 export class WorkloadAccessTokenProvider {
   private readonly controller: ControllerClient;
-  #cached?: { token: string; expiresAt?: number };
+  #cached?: { token: string; expiresAt?: number; refreshAt?: number };
   private pending?: Promise<string>;
 
   constructor(endpoint: string, source: AgentSATokenSource, options: ControllerOptions = {}) {
@@ -29,22 +31,38 @@ export class WorkloadAccessTokenProvider {
   }
   async get(): Promise<string> {
     const cached = this.#cached;
-    if (cached && (cached.expiresAt === undefined || cached.expiresAt > Date.now() / 1000 + REFRESH_BEFORE_SECONDS)) {
+    if (cached && (cached.refreshAt === undefined || cached.refreshAt > Date.now() / 1000)) {
       return cached.token;
     }
     if (this.pending) return this.pending;
-    const request = this.exchange();
+    const request = this.refresh();
     this.pending = request;
-    try {
-      const token = await request;
-      this.#cached = { token, expiresAt: tokenExpiry(token) };
-      return token;
-    }
+    try { return await request; }
     finally { this.pending = undefined; }
   }
+  private async refresh(): Promise<string> {
+    try {
+      const token = await this.exchange();
+      const expiresAt = tokenExpiry(token);
+      this.#cached = { token, expiresAt, refreshAt: expiresAt === undefined ? undefined : expiresAt - REFRESH_BEFORE_SECONDS };
+      return token;
+    } catch (error) {
+      const cached = this.#cached;
+      if ((error instanceof ControllerTransportError || error instanceof WorkloadTokenUnavailable) &&
+          cached?.expiresAt !== undefined && cached.expiresAt > Date.now() / 1000) {
+        cached.refreshAt = cached.expiresAt;
+        return cached.token;
+      }
+      throw error;
+    }
+  }
   async invalidate(token?: string): Promise<void> {
-    // Serialize invalidation after an exchange, including an initially empty cache.
+    // Drop the rejected token before a pending refresh can fall back to it.
+    this.clearCachedToken(token);
     if (this.pending) await this.pending.catch(() => undefined);
+    this.clearCachedToken(token);
+  }
+  private clearCachedToken(token?: string): void {
     if (token === undefined || token === this.#cached?.token) this.#cached = undefined;
   }
   close(): void { this.controller.close(); this.#cached = undefined; }
@@ -52,7 +70,10 @@ export class WorkloadAccessTokenProvider {
   private async exchange(): Promise<string> {
     const response = await this.controller.post('/api/v1/workload/token');
     if (response.status === 404) throw new WorkloadIdentityNotConfiguredError('the current Agent has no configured Workload Identity');
-    if (response.status < 200 || response.status >= 300) throw new AuthenticationError(`Controller workload token request failed with HTTP ${response.status}`);
+    if (response.status < 200 || response.status >= 300) {
+      const Failure = isRetryableControllerStatus(response.status) ? WorkloadTokenUnavailable : AuthenticationError;
+      throw new Failure(`Controller workload token request failed with HTTP ${response.status}`);
+    }
     const payload = response.payload;
     const token = payload && typeof payload === 'object' && 'workloadAccessToken' in payload ? payload.workloadAccessToken : undefined;
     if (typeof token !== 'string' || !token.trim()) throw new AuthenticationError('Controller returned an empty workload access token');

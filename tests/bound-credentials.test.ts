@@ -139,13 +139,15 @@ it.each(['ALL', 'SPECIFIED'])('fetches a permitted MCP Header credential through
   expect(result.asHeaders()).toEqual({ 'x-api-key': 'header-secret' });
 });
 
-it('refreshes WAT once on an explicit WAT expiration rejection and retries with the new token', async () => {
+it.each([
+  'WORKLOAD_ACCESS_TOKEN_EXPIRED', 'WORKLOAD_ACCESS_TOKEN_INVALID', 'InvalidParameter.WorkloadAccessToken',
+])('refreshes WAT once on an explicit WAT rejection (%s)', async (code) => {
   const seen: Array<string | null> = [];
   const { core, operations } = await setup(async (req, res) => {
     let body = ''; for await (const chunk of req) body += chunk;
     seen.push(new URLSearchParams(body).get('WorkloadAccessToken'));
     res.setHeader('content-type', 'application/json');
-    if (seen.length === 1) { res.statusCode = 400; res.end(JSON.stringify({ Code: 'WORKLOAD_ACCESS_TOKEN_EXPIRED', Message: 'expired', RequestId: 'expired-1' })); }
+    if (seen.length === 1) { res.statusCode = 400; res.end(JSON.stringify({ Code: code, Message: 'expired', RequestId: 'expired-1' })); }
     else res.end('{"APIKey":"fresh-api-key"}');
   });
   expect((await core.credentials.get('name')).value).toBe('fresh-api-key');
@@ -154,7 +156,7 @@ it('refreshes WAT once on an explicit WAT expiration rejection and retries with 
 
 it('does not keep retrying when the new WAT is also rejected', async () => {
   let calls = 0;
-  const { core, operations } = await setup((_req, res) => { calls++; res.statusCode = 400; res.setHeader('content-type', 'application/json'); res.end('{"Code":"WORKLOAD_ACCESS_TOKEN_INVALID","Message":"invalid"}'); });
+  const { core, operations } = await setup((_req, res) => { calls++; res.statusCode = 400; res.setHeader('content-type', 'application/json'); res.end('{"Code":"InvalidParameter.WorkloadAccessToken","Message":"invalid"}'); });
   await expect(core.credentials.get('name')).rejects.toBeInstanceOf(WorkloadAccessTokenRejectedError);
   expect(calls).toBe(2); expect(operations.filter((s) => s.includes('workload/token'))).toHaveLength(2);
 });

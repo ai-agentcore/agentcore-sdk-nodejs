@@ -9,7 +9,9 @@ import type { AccessKeyCredential, CredentialProvider } from './access-key';
 import { AGENT_IDENTITY_DATA_PURPOSE } from './resource-sts';
 
 const GeneratedClient = typeof Client === 'function' ? Client : (Client as unknown as { default: typeof Client }).default;
-const WAT_ERRORS = new Set(['WORKLOAD_ACCESS_TOKEN_EXPIRED', 'WORKLOAD_ACCESS_TOKEN_INVALID']);
+const WAT_ERRORS = new Set([
+  'WORKLOAD_ACCESS_TOKEN_EXPIRED', 'WORKLOAD_ACCESS_TOKEN_INVALID', 'INVALIDPARAMETER.WORKLOADACCESSTOKEN',
+]);
 interface CredentialRuntime {
   workspaceId: string;
   regionId: string;

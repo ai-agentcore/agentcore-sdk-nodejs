@@ -17,6 +17,7 @@ import { Templates } from './templates';
 import { ResourceDefaults } from './resource-defaults';
 import { BoundCredentials } from './auth/bound-credentials';
 import { MemoryStore } from './memory/client';
+import { KnowledgeBase } from './knowledge-base';
 import { bindContextMemory, contextEndpoint, type ContextMemoryClient } from './memory/context-client';
 import { RuntimeEnvironmentProvider } from './runtime/environment';
 import { CollaborationClient } from './collaboration/client';
@@ -86,6 +87,15 @@ export class AgentCore {
     return this.collaborationClient ??= new CollaborationClient({ teamsPath: this.options.teamsPath,
       envPath: this.options.envPath, workspaceDir: this.options.collaborationWorkspaceDir, logger: this.logger,
       debugSource: this.runtimeSource instanceof DebugRuntimeSource ? this.runtimeSource : undefined });
+  }
+
+  knowledgeBase(knowledgeBaseId: string): KnowledgeBase {
+    this.ensureOpen();
+    return new KnowledgeBase(knowledgeBaseId, async () => {
+      this.ensureOpen();
+      if (!this.context) await this.ensureRuntime();
+      return this.requireControlPlane();
+    });
   }
 
   memoryStore(name: string): MemoryStore {

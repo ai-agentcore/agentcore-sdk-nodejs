@@ -188,6 +188,22 @@ export class AgentCoreControlPlane {
     return { version, archive: await this.downloadSkill(url, 'Agent template', 50 * 1024 * 1024) };
   }
 
+  async searchKnowledgeBase(knowledgeBaseId: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    const client = await this.client();
+    const params = new $OpenApiUtil.Params({ action: 'SearchKnowledgeBase', version: '2026-08-04', protocol: 'HTTPS',
+      pathname: `/workspaces/${encodeURIComponent(this.workspaceId)}/knowledge-bases/${encodeURIComponent(knowledgeBaseId)}/search`,
+      method: 'POST', authType: 'AK', style: 'ROA', reqBodyType: 'json', bodyType: 'json' });
+    const response = await this.invoke(client, 'SearchKnowledgeBase', () => client.callApi(params,
+      new $OpenApiUtil.OpenApiRequest({ body }), new RuntimeOptions({ autoretry: false, connectTimeout: 10_000, readTimeout: 60_000 })));
+    const result = responseBody(response.body);
+    if (result.success === false) {
+      this.logger.warn('agentcore.knowledge_base.search.failed', { code: result.code, requestId: result.requestId });
+      throw new InvocationError(`SearchKnowledgeBase failed: code=${result.code} requestId=${result.requestId}`);
+    }
+    if (!result.data || typeof result.data !== 'object' || Array.isArray(result.data)) throw new InvocationError('SearchKnowledgeBase returned invalid data');
+    return result.data;
+  }
+
   close(): void { this.lifetime.abort(); }
 
   async resolveCredential(name: string): Promise<CredentialMetadata> {

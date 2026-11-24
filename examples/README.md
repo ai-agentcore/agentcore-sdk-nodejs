@@ -37,6 +37,7 @@ npx tsx examples/cloud-resources.ts
 
 | 示例 | 内容 |
 | --- | --- |
+| [knowledge-base.ts](knowledge-base.ts) | 原生知识库检索与来源切片 |
 | [cloud-resources.ts](cloud-resources.ts) | 云端模型、MCP 和 Skill |
 | [agent-template.ts](agent-template.ts) | 加载 Agent 模版的 Prompt、Skill，接入独立配置的 LangChain 模型 |
 | [mcp-credentials.ts](mcp-credentials.ts) | 为托管 MCP 绑定凭证、配置固定 Header，以及单独获取凭证 |

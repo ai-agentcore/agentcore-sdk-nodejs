@@ -12,3 +12,5 @@ export { ContextEvent, contextEventFromSource } from './memory/source-events';
 export { MemoryType } from './memory/context-models';
 export type * from './memory/context-models';
 export type { MemoryScope } from './memory/models';
+export { KnowledgeBase } from './knowledge-base';
+export type { KnowledgeBaseSearchOptions, KnowledgeBaseSearchResult, KnowledgeBaseChunk } from './knowledge-base';
